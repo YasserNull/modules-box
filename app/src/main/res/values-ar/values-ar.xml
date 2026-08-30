@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Null Box</string>
+    <string name="installing_module">جاري تثبيت الإضافة…</string>
+    <string name="search">بحث</string>
+    <string name="no_modules_found">لم يتم العثور على إضافات. ابدأ بتثبيت واحدة من المستودع أو من ملف ZIP.</string>
+    <string name="no_search_results">لم يتم العثور على نتائج بحث.</string>
+    <string name="script_not_found">لم يتم العثور على ملف السكربت.</string>
+    <string name="uninstall">إلغاء التثبيت</string>
+    <string name="more_options">المزيد من الخيارات</string>
+    <string name="install_from_zip">تثبيت من ملف ZIP</string>
+    <string name="terminal">الطرفية</string>
+    <string name="sessions">الجلسات</string>
+    <string name="session_label">الجلسة %1$d</string>
+    <string name="add_session">جلسة جديدة</string>
+    <string name="delete">حذف</string>
+    <string name="start">تشغيل</string>
+    <string name="kill_session">إنهاء الجلسة</string>
+    <string name="keep_screen_on">إبقاء الشاشة مضاءة</string>
+    <string name="reset">إعادة تعيين</string>
+    <string name="settings">الإعدادات</string>
+    <string name="back">رجوع</string>
+    <string name="theme">السمة</string>
+    <string name="theme_light">فاتح</string>
+    <string name="theme_dark">داكن</string>
+    <string name="theme_system">افتراضي</string>
+    <string name="black_theme">السمة السوداء</string>
+    <string name="enable_material_you">استخدام ألوان النظام</string>
+    <string name="hue_shift">إزاحة اللون</string>
+    <string name="saturation_shift">إزاحة التشبع</string>
+    <string name="reset_hue_shift">إعادة تعيين إزاحة اللون</string>
+    <string name="language">اللغة</string>
+    <string name="language_english">الإنجليزية</string>
+    <string name="language_arabic">العربية</string>
+    <string name="language_system">افتراضي النظام</string>
+    <string name="community_and_contribution">المجتمع والمساهمة</string>
+    <string name="source_code">المصدر</string>
+    <string name="contribute_to_modules">المساهمة في الإضافات</string>
+    <string name="repository_url_not_found">لم يتم العثور على رابط المستودع.</string>
+    <string name="repo_file_empty">ملف المستودع فارغ أو غير صالح.</string>
+    <string name="repo_load_failed">فشل تحميل المستودع. تحقق من اتصالك بالإنترنت.</string>
+    <string name="unknown_error_occurred">حدث خطأ غير معروف.</string>
+    <string name="raw_response_for_debugging">الاستجابة الكاملة (للتصحيح):</string>
+    <string name="repo_is_empty">المستودع فارغ.</string>
+    <string name="all_modules_up_to_date">جميع الإضافات محدثة، أو لا توجد إضافات جديدة متاحة.</string>
+    <string name="downloading">جاري التنزيل…</string>
+    <string name="retry">إعادة المحاولة</string>
+    <string name="download">تنزيل</string>
+    <string name="screen_title_modules">الإضافات</string>
+    <string name="screen_title_repo">المستودع</string>
+    <string name="search_modules_placeholder">البحث عن إضافات…</string>
+    <string name="clear_search">مسح سجل البحث</string>
+    <string name="error_opening_link">خطأ في فتح الرابط: %1$s</string>
+    <string name="invalid_repository_url">رابط المستودع غير صالح.</string>
+    <string name="select_language">اختر اللغة</string>
+    <string name="close">إغلاق</string>
+    <string name="restart_required">يتطلب إعادة التشغيل</string>
+    <string name="restart_message">لتطبيق تغييرات اللغة، يحتاج التطبيق إلى إعادة التشغيل.</string>
+    <string name="cancel">إلغاء</string>
+    <string name="restart">إعادة التشغيل</string>
+    <string name="install_success">تم تثبيت الإضافة بنجاح!</string>
+    <string name="install_failed">فشل تثبيت الإضافة.</string>
+    <string name="grant">منح</string>
+    <string name="ok">موافق</string>
+    <string name="storage_permission_title">يتطلب إذن التخزين</string>
+    <string name="storage_permission_message">يحتاج هذا التطبيق إذن التخزين لإدارة الملفات. يرجى منح الإذن للمتابعة.</string>
+
+    <!-- Terminal session modes -->
+    <string name="session">جلسة</string>
+    <string name="distribution">ألبين لينكس</string>
+    <string name="distribution_linux">بيئة لينكس</string>
+    <string name="android">أندرويد</string>
+    <string name="android_shell">قشرة أندرويد</string>
+    <string name="android_default_access">افتراضي</string>
+    <string name="android_default_access_desc">قشرة أندرويد عادية</string>
+    <string name="android_shizuku_access">شيزوكو</string>
+    <string name="android_shizuku_access_desc">تشغيل القشرة عبر شيزوكو (rish)</string>
+    <string name="android_root_access">الجذر</string>
+    <string name="android_root_access_desc">تشغيل قشرة الجذر (su)</string>
+    <string name="distribution_default_access">افتراضي</string>
+    <string name="distribution_default_access_desc">قشرة ألبين لينكس</string>
+    <string name="distribution_root_access">الجذر</string>
+    <string name="distribution_root_access_desc">تشغيل ألبين لينكس بقشرة الجذر (su)</string>
+    <string name="distribution_shizuku_access">شيزوكو</string>
+    <string name="distribution_shizuku_access_desc">ألبين لينكس عبر شيزوكو</string>
+    <string name="root">الجذر</string>
+    <string name="shizuku">شيزوكو</string>
+    <string name="shizuku_permission_denied">تم رفض إذن شيزوكو</string>
+    <string name="root_permission_denied">تم رفض إذن الجذر</string>
+
+    <!-- Session service notification -->
+    <string name="notification_title_terminal">الطرفية</string>
+    <string name="notification_action_exit">خروج</string>
+    <string name="notification_channel_name_session_service">خدمة الجلسات</string>
+    <string name="notification_channel_description_session_service">إشعار لخدمة الطرفية</string>
+    <string name="notification_session_count_one">جلسة واحدة قيد التشغيل</string>
+    <string name="notification_session_count_plural">%d جلسات قيد التشغيل</string>
+
+    <!-- Downloader -->
+    <string name="downloader_progress_installing">جاري التثبيت</string>
+    <string name="downloader_unsupported_cpu">معالج غير مدعوم</string>
+    <string name="network_error">خطأ في الشبكة</string>
+    <string name="downloader_setup_failed">فشل الإعداد</string>
+    <string name="downloader_download_failed">فشل التنزيل</string>
+    <string name="downloader_file_completed">اكتمل</string>
+    <string name="button_retry">إعادة المحاولة</string>
+    <string name="downloader_one_time_operation_message">هذه عملية لمرة واحدة، يرجى الانتظار.</string>
+    <string name="downloader_verifying_files">جاري التحقق من الملفات...</string>
+    <string name="downloader_file_progress_overall">الملف %1$d من %2$d</string>
+    <string name="select">تحديد</string>
+    <string name="architecture_not_supported">هذه التوزيعة غير متوفرة لمعمارية جهازك.</string>
+    <string name="wildcard_resolution_failed">فشل في تحديد أحدث إصدار لهذه التوزيعة.</string>
+    <string name="terminal_clipboard_label">الطرفية</string>
+    <string name="terminal_session_finished">انتهى الأمر في الجلسة %1$s</string>
+
+    <!-- Distribution permission -->
+    <string name="distribution_permission_title">اختر صلاحية التوزيعة</string>
+    <string name="distribution_permission_default_root">افتراضي / جذر</string>
+    <string name="distribution_permission_default_root_desc">تقدر تستعمل صلاحية العادية او روت فقط</string>
+    <string name="distribution_permission_shizuku_root">شيزوكو / جذر</string>
+    <string name="distribution_permission_shizuku_root_desc">تقدر تستعمل شيزيكو او روت فقط</string>
+    <string name="warning">تحذير</string>
+    <string name="distribution_permission_warning_desc">عندما تقوم بحذف التطبيق لن يتم حذف مجلد التوزيعة ، لهذا السبب يجب عليك قبل حذف التطبيق ان تحذف التوزيعة من اعدادات التطبيق</string>
+    <string name="distribution_permission_copy_failed">فشل نقل التوزيعة إلى المسار المميز</string>
+    <string name="change_distribution_permission">تغيير صلاحية التوزيعة</string>
+    <string name="change_distribution_permission_to_shizuku_root">تغيير صلاحية التوزيعة إلى شيزوكو / جذر</string>
+    <string name="change_distribution_permission_to_default_root">تغيير صلاحية التوزيعة إلى افتراضي / جذر</string>
+    <string name="distribution_settings">التوزيعة</string>
+    <string name="delete_distribution">حذف التوزيعة</string>
+    <string name="delete_distribution_confirm">هل انت متأكد؟</string>
+    <string name="yes">نعم</string>
+    <string name="no">لا</string>
+
+    <!-- Documents provider -->
+    <string name="application_name">Null Box</string>
+</resources>

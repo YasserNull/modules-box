@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Null Box</string>
+    <string name="installing_module">Installing module…</string>
+    <string name="search">Search</string>
+    <string name="no_modules_found">No modules found. Start by installing one from the repository or a ZIP file.</string>
+    <string name="no_search_results">No search results found.</string>
+    <string name="script_not_found">Script file not found.</string>
+    <string name="uninstall">Uninstall</string>
+    <string name="more_options">More options</string>
+    <string name="install_from_zip">Install from ZIP</string>
+    <string name="terminal">Terminal</string>
+    <string name="sessions">Sessions</string>
+    <string name="session_label">Session %1$d</string>
+    <string name="add_session">New session</string>
+    <string name="delete">Delete</string>
+    <string name="start">Start</string>
+    <string name="kill_session">Kill session</string>
+    <string name="keep_screen_on">Keep screen on</string>
+    <string name="reset">Reset</string>
+    <string name="settings">Settings</string>
+    <string name="back">Back</string>
+    <string name="theme">Theme</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+    <string name="theme_system">System default</string>
+    <string name="black_theme">Black theme</string>
+    <string name="enable_material_you">Use system colors</string>
+    <string name="hue_shift">Hue shift</string>
+    <string name="saturation_shift">Saturation shift</string>
+    <string name="reset_hue_shift">Reset hue shift</string>
+    <string name="language">Language</string>
+    <string name="language_english">English</string>
+    <string name="language_arabic">العربية</string>
+    <string name="language_system">System default</string>
+    <string name="community_and_contribution">Community and Contribution</string>
+    <string name="source_code">Source code</string>
+    <string name="contribute_to_modules">Contribute to modules</string>
+    <string name="repository_url_not_found">Repository URL not found.</string>
+    <string name="repo_file_empty">The repository file is empty or malformed.</string>
+    <string name="repo_load_failed">Failed to load repository. Check your internet connection.</string>
+    <string name="unknown_error_occurred">An unknown error occurred.</string>
+    <string name="raw_response_for_debugging">Raw response (for debugging):</string>
+    <string name="repo_is_empty">The remote repository is empty.</string>
+    <string name="all_modules_up_to_date">All modules are up to date, or no new modules are available.</string>
+    <string name="downloading">Downloading…</string>
+    <string name="retry">Retry</string>
+    <string name="download">Download</string>
+    <string name="screen_title_modules">Modules</string>
+    <string name="screen_title_repo">Repository</string>
+    <string name="search_modules_placeholder">Search modules…</string>
+    <string name="clear_search">Clear search</string>
+    <string name="error_opening_link">Error opening link: %1$s</string>
+    <string name="invalid_repository_url">Invalid repository URL.</string>
+    <string name="select_language">Select Language</string>
+    <string name="close">Close</string>
+    <string name="restart_required">Restart Required</string>
+    <string name="restart_message">To apply language changes, the app needs to restart.</string>
+    <string name="cancel">Cancel</string>
+    <string name="restart">Restart</string>
+    <string name="install_success">Module installed successfully!</string>
+    <string name="install_failed">Module installation failed.</string>
+    <string name="grant">Grant</string>
+    <string name="ok">OK</string>
+    <string name="storage_permission_title">Storage permission required</string>
+    <string name="storage_permission_message">This app needs storage access to manage files. Please grant permission to continue.</string>
+
+    <!-- Terminal session modes -->
+    <string name="session">Session</string>
+    <string name="distribution">Alpine Linux</string>
+    <string name="distribution_linux">Linux environment</string>
+    <string name="android">Android</string>
+    <string name="android_shell">Android shell</string>
+    <string name="android_default_access">Default</string>
+    <string name="android_default_access_desc">Regular Android shell</string>
+    <string name="android_shizuku_access">Shizuku</string>
+    <string name="android_shizuku_access_desc">Start shell via Shizuku (rish)</string>
+    <string name="android_root_access">Root</string>
+    <string name="android_root_access_desc">Start root shell (su)</string>
+    <string name="distribution_default_access">Default</string>
+    <string name="distribution_default_access_desc">Alpine Linux shell</string>
+    <string name="distribution_root_access">Root</string>
+    <string name="distribution_root_access_desc">Alpine Linux root shell (su)</string>
+    <string name="distribution_shizuku_access">Shizuku</string>
+    <string name="distribution_shizuku_access_desc">Alpine Linux via Shizuku</string>
+    <string name="root">Root</string>
+    <string name="shizuku">Shizuku</string>
+    <string name="shizuku_permission_denied">Shizuku permission denied</string>
+    <string name="root_permission_denied">Root permission denied</string>
+
+    <!-- Session service notification -->
+    <string name="notification_title_terminal">Terminal</string>
+    <string name="notification_action_exit">EXIT</string>
+    <string name="notification_channel_name_session_service">Session Service</string>
+    <string name="notification_channel_description_session_service">Notification for Terminal Service</string>
+    <string name="notification_session_count_one">1 session running</string>
+    <string name="notification_session_count_plural">%d sessions running</string>
+
+    <!-- Downloader -->
+    <string name="downloader_progress_installing">Installing</string>
+    <string name="downloader_unsupported_cpu">Unsupported CPU</string>
+    <string name="network_error">Network Error</string>
+    <string name="downloader_setup_failed">Setup Failed</string>
+    <string name="downloader_download_failed">Download Failed</string>
+    <string name="downloader_file_completed">Completed</string>
+    <string name="button_retry">Retry</string>
+    <string name="downloader_one_time_operation_message">This is a one-time operation, please wait.</string>
+    <string name="downloader_verifying_files">Verifying files...</string>
+    <string name="downloader_file_progress_overall">File %1$d of %2$d</string>
+    <string name="select">Select</string>
+    <string name="architecture_not_supported">This distribution is not available for your device architecture.</string>
+    <string name="wildcard_resolution_failed">Failed to resolve the latest release for this distribution.</string>
+    <string name="terminal_clipboard_label">Terminal</string>
+    <string name="terminal_session_finished">Command in session %1$s finished</string>
+
+    <!-- Distribution permission -->
+    <string name="distribution_permission_title">Choose distribution permission</string>
+    <string name="distribution_permission_default_root">Default / Root</string>
+    <string name="distribution_permission_default_root_desc">You can use normal or root permission only</string>
+    <string name="distribution_permission_shizuku_root">Shizuku / Root</string>
+    <string name="distribution_permission_shizuku_root_desc">You can use Shizuku or root permission only</string>
+    <string name="warning">Warning</string>
+    <string name="distribution_permission_warning_desc">When you delete the app, the distribution folder will not be deleted, so you must delete the distribution from app settings before deleting the app.</string>
+    <string name="distribution_permission_copy_failed">Failed to move the distribution to the privileged path.</string>
+    <string name="change_distribution_permission">Change distribution permission</string>
+    <string name="change_distribution_permission_to_shizuku_root">Change distribution permission to Shizuku / Root</string>
+    <string name="change_distribution_permission_to_default_root">Change distribution permission to Default / Root</string>
+    <string name="distribution_settings">Distribution</string>
+    <string name="delete_distribution">Delete distribution</string>
+    <string name="delete_distribution_confirm">Are you sure?</string>
+    <string name="yes">Yes</string>
+    <string name="no">No</string>
+
+    <!-- Documents provider -->
+    <string name="application_name">Null Box</string>
+</resources>

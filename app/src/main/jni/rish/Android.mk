@@ -1,0 +1,8 @@
+LOCAL_PATH := $(call my-dir)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := rish
+LOCAL_SRC_FILES := rish.c
+LOCAL_MODULE_CLASS := EXECUTABLES
+LOCAL_LDLIBS := -llog
+include $(BUILD_EXECUTABLE)
