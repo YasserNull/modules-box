@@ -10,6 +10,7 @@
 #include <unistd.h>
 
 void fix_resolv_conf() {
+
   char resolv_path[MAX_PATH];
   char temp_path[MAX_PATH];
   struct stat st;
@@ -97,6 +98,7 @@ void fix_timezone() {
 }
 
 void fix_linker_config() {
+
   char linker_dir[MAX_PATH];
   char ld_config_path[MAX_PATH];
   struct stat st;
@@ -118,57 +120,74 @@ void fix_linker_config() {
 }
 
 void fix_groups_and_permissions() {
-  char group_file_path[MAX_PATH];
-  char cmd_buffer[MAX_PATH];
-  struct stat st;
+    char group_file_path[MAX_PATH];
+    snprintf(group_file_path, MAX_PATH, "%s/%s/etc/group", DISTRIBUTION_PATH);
 
-
-  snprintf(group_file_path, MAX_PATH, "%s/%s/etc/group", DISTRIBUTION_PATH);
-
-  FILE *f = fopen(group_file_path, "a+");
-  if (f) {
-    const char *groups_to_add[] = {
+    // ============ 1. التحقق من وجود المجموعات النصية وإضافتها ============
+    const char *text_groups[] = {
         "aid_inet:x:3003:",  "aid_net_raw:x:3004:", "aid_graphics:x:1003:",
         "aid_input:x:1004:", "aid_audio:x:1005:",   "aid_video:x:1006:",
-        "aid_drm:x:1007:"};
+        "aid_drm:x:1007:"
+    };
+    int num_text = sizeof(text_groups) / sizeof(text_groups[0]);
+    int exists[num_text];
+    memset(exists, 0, sizeof(exists));
 
-    char line[256];
-    for (int i = 0; i < 7; i++) {
-      int exists = 0;
-      fseek(f, 0, SEEK_SET); // العودة لبداية الملف للبحث
-      while (fgets(line, sizeof(line), f)) {
-        if (strstr(line, groups_to_add[i])) {
-          exists = 1;
-          break;
-        } 
-      }
-      if (!exists) {
-        fprintf(f, "%s\n", groups_to_add[i]);
-      }
+    // قراءة الملف مرة واحدة
+    FILE *f = fopen(group_file_path, "r");
+    if (f) {
+        char line[256];
+        while (fgets(line, sizeof(line), f)) {
+            for (int i = 0; i < num_text; i++) {
+                if (strstr(line, text_groups[i])) exists[i] = 1;
+            }
+        }
+        fclose(f);
     }
-    fclose(f);
-  }
 
-  int gids[] = {1077, 3003, 9997, 20412, 50412, 99909997};
-
-  for (int i = 0; i < 6; i++) {
-    if (distribution_run_command("command -v getent > /dev/null 2>&1") == 0 &&
-        distribution_run_command("command -v groupadd > /dev/null 2>&1") == 0) {
-      snprintf(cmd_buffer, MAX_PATH,
-               "getent group %d || groupadd -g %d unknown_%d", gids[i], gids[i],
-               gids[i]);
-      distribution_run_command(cmd_buffer);
-    } else if (distribution_run_command(
-                   "command -v addgroup > /dev/null 2>&1") == 0) {
-      snprintf(cmd_buffer, MAX_PATH, "addgroup -g %d unknown_%d", gids[i],
-               gids[i]);
-      distribution_run_command(cmd_buffer);
-    } else {
-      continue;
+    // إضافة المفقود
+    f = fopen(group_file_path, "a");
+    if (f) {
+        for (int i = 0; i < num_text; i++) {
+            if (!exists[i]) fprintf(f, "%s\n", text_groups[i]);
+        }
+        fclose(f);
     }
-  }
+
+    // ============ 2. التحقق من المجموعات الرقمية بدون أوامر ============
+    int gids[] = {1077, 3003, 9997, 20412, 50412, 99909997};
+    int num_gids = sizeof(gids) / sizeof(gids[0]);
+    int gid_exists[num_gids];
+    memset(gid_exists, 0, sizeof(gid_exists));
+
+    // قراءة الملف مرة أخرى للبحث عن المجموعات الرقمية
+    f = fopen(group_file_path, "r");
+    if (f) {
+        char line[256];
+        while (fgets(line, sizeof(line), f)) {
+            for (int i = 0; i < num_gids; i++) {
+                // البحث عن ":x:GID:" في السطر
+                char pattern[32];
+                snprintf(pattern, sizeof(pattern), ":x:%d:", gids[i]);
+                if (strstr(line, pattern)) {
+                    gid_exists[i] = 1;
+                }
+            }
+        }
+        fclose(f);
+    }
+
+    // إضافة المجموعات الرقمية المفقودة مباشرة للملف
+    f = fopen(group_file_path, "a");
+    if (f) {
+        for (int i = 0; i < num_gids; i++) {
+            if (!gid_exists[i]) {
+                fprintf(f, "unknown_%d:x:%d:\n", gids[i], gids[i]);
+            }
+        }
+        fclose(f);
+    }
 }
-
 void init_distribution(const char *local, const char *distribution_dir) {
   DIR *dir = opendir(distribution_dir);
   if (!dir)
@@ -190,24 +209,47 @@ void init_distribution(const char *local, const char *distribution_dir) {
 
   closedir(dir);
 
-  if (empty) {
-    char rootfs_path[512];
-    
-    
-      snprintf(rootfs_path, sizeof(rootfs_path), "%s/distribution.tar.gz",
-               local);
-      if (access(rootfs_path, F_OK) != 0) {
-        printf("distribution archive not found.\n");
-        exit(1);
-      }
-    
-    char cmd[1024];
+  // Alpine minirootfs archive.
+  char rootfs_path[512];
+  snprintf(rootfs_path, sizeof(rootfs_path), "%s/distribution.tar.gz", local);
+
+  int need_extract = empty;
+  if (!empty) {
+    // Interrupted extraction leftovers: re-extract when the Alpine marker is missing.
+    char marker_path[1024];
+    snprintf(marker_path, sizeof(marker_path), "%s/etc/alpine-release", distribution_dir);
+    if (access(marker_path, F_OK) != 0)
+      need_extract = 1;
+  }
+
+  if (need_extract) {
+    if (access(rootfs_path, F_OK) != 0) {
+      printf("distribution archive not found.\n");
+      exit(1);
+    }
+    if (!empty) {
+      // Stale rootfs (interrupted extraction or previous distro): wipe the dir
+      // contents, then recreate it plus the runtime dirs sessions need (tmp/ for
+      // /dev/shm, root/ as shell home and module staging home).
+      char cmd[1024];
+      snprintf(cmd, sizeof(cmd), "rm -rf '%s'", distribution_dir);
+      system(cmd);
+      mkdir_p(distribution_dir);
+      char tmp_path[1024], root_path[1024];
+      snprintf(tmp_path, sizeof(tmp_path), "%s/tmp", distribution_dir);
+      snprintf(root_path, sizeof(root_path), "%s/root", distribution_dir);
+      mkdir_p(tmp_path);
+      mkdir_p(root_path);
+    }
     extract_rootfs(rootfs_path, distribution_dir);
   }
+  
   fix_linker_config();
- fix_resolv_conf();
+  
+  fix_resolv_conf();
+ 
   fix_timezone();
-  fix_groups_and_permissions();
+ fix_groups_and_permissions();
 }
 
 int main(int argc, char *argv[]) {

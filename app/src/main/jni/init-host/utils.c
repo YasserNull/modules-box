@@ -5,18 +5,6 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
-int skip_dir(const char *name) {
-  const char *skip[] = {"bin",   "boot", "etc",  "home",         "lib",
-                        "media", "opt",  "root", "run",          "sbin",
-                        "srv",   "usr",  "var",  "linkerconfig", NULL};
-
-  for (int i = 0; skip[i] != NULL; i++) {
-    if (strcmp(name, skip[i]) == 0)
-      return 1;
-  }
-
-  return 0;
-}
 
 #include <sys/stat.h>
 
@@ -46,24 +34,16 @@ const char *find_su_path() {
 void extract_rootfs(const char *rootfs_path, const char *dest) {
   char cmd[1024];
   char line[512];
+  // Alpine ships .tar.gz (gzip).
   // Construct the final extraction command based on our findings
       snprintf(cmd, sizeof(cmd),
-               "%s %s/bin/busybox tar -xzvf \"%s\" -C \"%s\"",
+               "%s %s/bin/busybox tar -xzvf \"%s\" --strip-components=1 -C \"%s\"",
                linker,local,rootfs_path, dest);
     
   system(cmd);
 }
 
-int distribution_run_command(const char *command) {
-  char cmd[10240];
-  // proot لا يقبل -c؛ نشغّل الأمر عبر /bin/sh داخل الـ rootfs.
-  const char *su_cmd = find_su_path();
-  snprintf(cmd, sizeof(cmd), "%s %s/bin/proot %s %s -c \"%s\"", linker,
-           local, proot_args, su_cmd,command);
-  
-  
-  return system(cmd);
-}
+
 
 /* Recursive mkdir -p (creates parent directories as needed). */
 int mkdir_p(const char *path) {

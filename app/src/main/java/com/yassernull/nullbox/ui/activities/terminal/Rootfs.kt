@@ -25,6 +25,15 @@ object Rootfs {
     var isDownloaded = mutableStateOf(isFilesDownloaded())
     var needsDistributionInit = mutableStateOf(false)
 
+    /**
+     * True once the first-run downloader has fully completed in this process
+     * (download finished AND a distribution permission was chosen). TerminalActivity
+     * observes this to recompose from the Downloader to the terminal — the filesystem
+     * + SharedPreferences check in [isSetupComplete] is not Compose state, so without
+     * this the activity stays on the blank Downloader frame after it returns early.
+     */
+    var setupComplete = mutableStateOf(false)
+
     fun recheck() {
         isDownloaded.value = isFilesDownloaded()
     }
@@ -85,7 +94,7 @@ object Rootfs {
      * Copies the essential distribution files to /data/local/tmp/null-box:
      *  - bin/proot, bin/busybox
      *  - lib/libtalloc.so.2, lib/libproot-loader.so, lib/libproot-loader32.so
-     *  - distribution.* (the alpine archive)
+     *  - distribution.* (the Alpine archive)
      *
      * For root: direct cp via libsu.
      * For shizuku: copy to /sdcard first, then shizuku shell copies from /sdcard.

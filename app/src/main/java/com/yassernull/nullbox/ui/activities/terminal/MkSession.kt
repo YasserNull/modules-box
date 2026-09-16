@@ -1,6 +1,7 @@
 package com.yassernull.nullbox.ui.activities.terminal
 
 import android.app.Activity
+import android.content.Context
 import com.termux.terminal.TerminalEmulator
 import com.termux.terminal.TerminalSession
 import com.termux.terminal.TerminalSessionClient
@@ -16,8 +17,8 @@ import java.io.File
 object MkSession {
     private const val TAG = "MkSession"
 
-    fun buildAndroidEnv(activity: Activity, sessionId: String, workingMode: Int? = null): Array<String> {
-        with(activity) {
+    fun buildAndroidEnv(context: Context, sessionId: String, workingMode: Int? = null): Array<String> {
+        with(context) {
             val envVariables = mapOf(
                 "ANDROID_ART_ROOT" to System.getenv("ANDROID_ART_ROOT"),
                 "ANDROID_DATA" to System.getenv("ANDROID_DATA"),
@@ -106,11 +107,19 @@ object MkSession {
         }
     }
 
+    /**
+     * Creates a distribution (proot) session. When [installCommand] is non-null it is
+     * appended to the `init-host proot` invocation as an extra argument, which makes
+     * init-host run `sh -c '<command>'` inside the guest NON-interactively — no shell
+     * prompt and no echo, so the terminal shows only the command's output. Used for
+     * module install scripts. Normal sessions pass null → interactive shell.
+     */
     fun createSession(
         activity: Activity,
         sessionClient: TerminalSessionClient,
         sessionId: String,
-        workingMode: Int
+        workingMode: Int,
+        installCommand: String? = null
     ): TerminalSession {
         with(activity) {
             val workingDir = distributionHomeDir().path
@@ -118,23 +127,29 @@ object MkSession {
             val env = buildAndroidEnv(activity, sessionId, workingMode).toMutableList()
             val linker = linkerPath()
 
+            // init-host supports `init-host proot '<command>'` (argv[2]+) → runs the
+            // command via /bin/sh inside the guest. The command must not contain single
+            // quotes (init-host wraps it in '...'); module paths never contain them.
+            fun prootCmd() = if (installCommand != null) {
+                "$linker ${initFile.absolutePath} proot '$installCommand'"
+            } else {
+                "$linker ${initFile.absolutePath} proot"
+            }
+
             val args: Array<String>
             val shell = when (workingMode) {
                 WorkingMode.DISTRIBUTION -> {
-                    val cmd = "$linker ${initFile.absolutePath} proot"
-                    args = arrayOf("/system/bin/sh", "-c", cmd)
+                    args = arrayOf("/system/bin/sh", "-c", prootCmd())
                     "/system/bin/sh"
                 }
 
                 WorkingMode.DISTRIBUTION_ROOT -> {
-                    val cmd = "$linker ${initFile.absolutePath} proot"
-                    args = arrayOf("su", "-c", cmd)
+                    args = arrayOf("su", "-c", prootCmd())
                     "su"
                 }
 
                 WorkingMode.DISTRIBUTION_SHIZUKU -> {
-                    val cmd = "$linker ${initFile.absolutePath} proot"
-                    args = arrayOf("/system/bin/sh", "-c", cmd)
+                    args = arrayOf("/system/bin/sh", "-c", prootCmd())
                     "/system/bin/sh"
                 }
 

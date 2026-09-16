@@ -237,6 +237,42 @@ object PrivilegedFileOps {
         }
     }
 
+    /** Copies a whole app-readable directory to [targetPath] with elevated access. */
+    suspend fun copyDirToPrivileged(context: Context, sourceDir: File, targetPath: String): Boolean {
+        return withContext(Dispatchers.IO) {
+            when {
+                PrivilegedAccessManager.hasRootPermission() -> {
+                    // Root can read app-private storage directly.
+                    val cmd = "rm -rf '$targetPath' && mkdir -p '$targetPath' && cp -r '${sourceDir.path}/.' '$targetPath/' && chmod -R a+rX '$targetPath'"
+                    Shell.cmd(cmd).exec().isSuccess
+                }
+
+                PrivilegedAccessManager.hasShizukuPermission() -> {
+                    // Shizuku shell cannot read app-private storage: recreate dirs
+                    // elevated, then copy each file via writeFileToPrivileged (/sdcard staging).
+                    if (!runViaShizuku(context, "rm -rf '$targetPath' && mkdir -p '$targetPath' >/dev/null 2>&1")) {
+                        return@withContext false
+                    }
+                    var ok = true
+                    sourceDir.walkTopDown().forEach { file ->
+                        if (!ok) return@forEach
+                        val rel = file.relativeTo(sourceDir).path
+                        if (rel.isEmpty()) return@forEach
+                        val dest = "$targetPath/$rel"
+                        ok = if (file.isDirectory) {
+                            runViaShizuku(context, "mkdir -p '$dest' >/dev/null 2>&1")
+                        } else {
+                            writeFileToPrivileged(context, file, dest)
+                        }
+                    }
+                    ok
+                }
+
+                else -> false
+            }
+        }
+    }
+
     /** Deletes [target] (recursively) with elevated access. */
     suspend fun deletePrivileged(context: Context, target: File): Boolean {
         return withContext(Dispatchers.IO) {

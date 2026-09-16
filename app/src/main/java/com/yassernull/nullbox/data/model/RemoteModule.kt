@@ -11,5 +11,8 @@ data class RemoteModule(
     val author: String,
     val version: String,
     val versionCode: String,
-    val repository: String
+    val repository: String,
+    val iconPath: String? = null,
+    val readmeUrl: String? = null,
+    val downloads: Long = 0
 )

@@ -133,4 +133,14 @@
 
     <!-- Documents provider -->
     <string name="application_name">Null Box</string>
+
+    <!-- Module run/log -->
+    <string name="stop">إيقاف</string>
+    <string name="module_log">السجل</string>
+    <string name="module_port">البورت: %1$d</string>
+    <string name="copy">نسخ</string>
+    <string name="logs_title">سجل الوحدة</string>
+    <string name="install_result_title">نتيجة التثبيت</string>
+    <string name="module_start_failed">فشل في تشغيل الوحدة.</string>
+    <string name="module_stopped">تم إيقاف الوحدة.</string>
 </resources>

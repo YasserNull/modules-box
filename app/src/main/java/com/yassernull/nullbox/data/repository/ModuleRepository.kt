@@ -2,7 +2,11 @@ package com.yassernull.nullbox.data.repository
 
 import android.content.Context
 import android.net.Uri
+import android.util.Log
 import com.yassernull.nullbox.data.model.Module
+import com.yassernull.nullbox.utils.PrivilegedFileOps
+import com.yassernull.nullbox.utils.distributionDir
+import com.yassernull.nullbox.utils.isDistroShizukuRoot
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -12,11 +16,41 @@ import java.io.IOException
 import java.util.Properties
 import java.util.zip.ZipInputStream
 
+/**
+ * Result of extracting a module ZIP.
+ *  - [Installed]: the module has no install script and is ready to use.
+ *  - [NeedsTerminalInstall]: the module has an install script that must be run in a
+ *    Alpine terminal before it counts as installed.
+ *  - [Failed]: the archive could not be processed.
+ */
+sealed class ZipInstallResult {
+    object Installed : ZipInstallResult()
+    data class NeedsTerminalInstall(val module: Module) : ZipInstallResult()
+    data class Failed(val reason: String) : ZipInstallResult()
+}
+
 class ModuleRepository(
     private val context: Context
 ) {
 
+    private val TAG = "ModuleRepository"
+
     private val modulesRootPath by lazy { File(context.filesDir, "modules").absolutePath }
+
+    /** Marker file written once a module's install script completes successfully. */
+    private fun installedMarker(moduleDir: File): File = File(moduleDir, ".installed")
+
+    /** Marks a module as fully installed (its install script completed successfully). */
+    fun markModuleInstalled(moduleId: String) {
+        val dir = File(modulesRootPath, moduleId)
+        dir.mkdirs()
+        installedMarker(dir).writeText("installed")
+    }
+
+    /** Removes the installed marker (e.g. after a failed install script). */
+    fun markModuleInstallFailed(moduleId: String) {
+        installedMarker(File(modulesRootPath, moduleId)).delete()
+    }
 
     suspend fun getModules(): List<Module> {
         return withContext(Dispatchers.IO) {
@@ -27,14 +61,22 @@ class ModuleRepository(
             modulesDir.listFiles()?.forEach { moduleFolder ->
                 if (moduleFolder.isDirectory) {
                     val modulePropFile = File(moduleFolder, "module.prop")
-                    readModuleProp(modulePropFile)?.let { modulesList.add(it) }
+                    val module = readModuleProp(modulePropFile) ?: return@forEach
+                    // A module that declares an install script only counts as installed after
+                    // that script has completed successfully (marker written by the terminal).
+                    // Modules without an install script are installed as soon as their files
+                    // are in place.
+                    val needsMarker = !module.install.isNullOrBlank()
+                    if (!needsMarker || installedMarker(moduleFolder).exists()) {
+                        modulesList.add(module)
+                    }
                 }
             }
             modulesList
         }
     }
 
-    suspend fun installFromZip(zipUri: Uri, context: Context): Boolean {
+    suspend fun installFromZip(zipUri: Uri, context: Context): ZipInstallResult {
         return withContext(Dispatchers.IO) {
             val tempDir = File(context.cacheDir, "unzip_temp_${System.currentTimeMillis()}").apply { mkdirs() }
             try {
@@ -51,7 +93,7 @@ class ModuleRepository(
                             entry = zipInputStream.nextEntry
                         }
                     }
-                } ?: return@withContext false
+                } ?: return@withContext ZipInstallResult.Failed("تعذر فتح ملف ZIP.")
 
                 val modulePropFile = findModuleProp(tempDir) ?: throw IOException("لم يتم العثور على module.prop.")
                 val moduleContentDir = modulePropFile.parentFile ?: throw IOException("هيكل الوحدة غير صالح.")
@@ -62,9 +104,41 @@ class ModuleRepository(
                 if (finalModuleDir.exists()) finalModuleDir.deleteRecursively()
                 finalModuleDir.mkdirs()
                 moduleContentDir.copyRecursively(finalModuleDir, overwrite = true)
-                true
+
+                // Best-effort staging into the proot guest (needed to RUN the module
+                // later). The terminal install re-stages fresh before running the
+                // script, so a hiccup here must not block the install flow.
+                val prootTargetPath = File(distributionDir(), "opt/null-box/$moduleId").absolutePath
+                val staged = if (isDistroShizukuRoot()) {
+                    PrivilegedFileOps.copyDirToPrivileged(context, moduleContentDir, prootTargetPath)
+                } else {
+                    try {
+                        val prootTargetDir = File(prootTargetPath)
+                        if (prootTargetDir.exists()) prootTargetDir.deleteRecursively()
+                        prootTargetDir.mkdirs()
+                        moduleContentDir.copyRecursively(prootTargetDir, overwrite = true)
+                        true
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Failed to stage module $moduleId into proot dir", e)
+                        false
+                    }
+                }
+                if (!staged) Log.w(TAG, "proot staging deferred to terminal install for $moduleId")
+
+                val module = readModuleProp(File(finalModuleDir, "module.prop"))
+                    ?: throw IOException("module.prop غير صالح.")
+
+                // If the module declares an install script and it exists, it must run in an
+                // Alpine terminal before the module counts as installed.
+                val installPath = module.install
+                if (!installPath.isNullOrBlank() && File(module.path, installPath).exists()) {
+                    ZipInstallResult.NeedsTerminalInstall(module)
+                } else {
+                    installedMarker(finalModuleDir).writeText("installed")
+                    ZipInstallResult.Installed
+                }
             } catch (e: Exception) {
-                false
+                ZipInstallResult.Failed(e.message ?: e.toString())
             } finally {
                 tempDir.deleteRecursively()
             }
@@ -82,6 +156,12 @@ class ModuleRepository(
         return withContext(Dispatchers.IO) {
             try {
                 File(module.path).deleteRecursively()
+                val prootDir = File(distributionDir(), "opt/null-box/${module.id}")
+                if (isDistroShizukuRoot()) {
+                    PrivilegedFileOps.deletePrivileged(context, prootDir)
+                } else if (prootDir.exists()) {
+                    prootDir.deleteRecursively()
+                }
                 true
             } catch (e: Exception) {
                 false

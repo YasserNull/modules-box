@@ -70,9 +70,14 @@ class TerminalBackEnd(
 
     override fun onSessionFinished(finishedSession: TerminalSession) {
         val service = activity.sessionBinder?.getService() ?: return
-        val currentSessionName = service.currentSession.value.first
         val finishedSessionName = finishedSession.mSessionName ?: return
 
+        // Install sessions (module install scripts) are handled by the activity: it marks
+        // the module installed/failed based on the session exit code. The activity returns
+        // true when it took ownership of the event, so skip the generic toast below.
+        if (activity.onInstallSessionFinished(finishedSession)) return
+
+        val currentSessionName = service.currentSession.value.first
         if (currentSessionName != finishedSessionName) {
             activity.runOnUiThread {
                 Toast.makeText(

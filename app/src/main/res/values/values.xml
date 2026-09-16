@@ -133,4 +133,14 @@
 
     <!-- Documents provider -->
     <string name="application_name">Null Box</string>
+
+    <!-- Module run/log -->
+    <string name="stop">Stop</string>
+    <string name="module_log">Logs</string>
+    <string name="module_port">Port: %1$d</string>
+    <string name="copy">Copy</string>
+    <string name="logs_title">Module Logs</string>
+    <string name="install_result_title">Installation Result</string>
+    <string name="module_start_failed">Failed to start module.</string>
+    <string name="module_stopped">Module stopped.</string>
 </resources>

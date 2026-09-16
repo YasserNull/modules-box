@@ -24,6 +24,8 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
 import com.yassernull.nullbox.R
+import com.yassernull.nullbox.data.model.Module
+import com.yassernull.nullbox.ui.dialogs.ModuleLogDialog
 import com.yassernull.nullbox.ui.navigation.AppScreen
 import com.yassernull.nullbox.ui.viewmodels.ModuleViewModel
 import com.yassernull.nullbox.ui.viewmodels.RepoViewModel
@@ -36,7 +38,8 @@ fun MainScreen(
     repoViewModel: RepoViewModel,
     onSettingsClick: () -> Unit,
     onInstallFromZipClick: () -> Unit,
-    onTerminalClick: () -> Unit
+    onTerminalClick: () -> Unit,
+    onModuleNeedsInstall: (Module) -> Unit
 ) {
     val navController = rememberNavController()
     val systemUiController = rememberSystemUiController()
@@ -121,11 +124,21 @@ fun MainScreen(
                         viewModel = repoViewModel,
                         installedModules = installedModules,
                         onDownloadComplete = { moduleViewModel.refreshModules() },
+                        onNeedsInstall = onModuleNeedsInstall,
                         searchQuery = searchQuery
                     )
                 }
             }
         }
+    }
+
+    val showResultDialog by moduleViewModel.showResultDialog.collectAsState()
+    val resultDialogText by moduleViewModel.resultDialogText.collectAsState()
+    if (showResultDialog) {
+        ModuleLogDialog(
+            logText = resultDialogText,
+            onDismissRequest = { moduleViewModel.dismissResultDialog() }
+        )
     }
 }
 

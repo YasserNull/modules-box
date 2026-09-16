@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
+#include <sys/prctl.h>
 #include <sys/wait.h>
 #include <termios.h>
 #include <unistd.h>
@@ -76,6 +77,13 @@ static int create_subprocess(JNIEnv* env,
 
         close(ptm);
         setsid();
+
+        // Kill this shell when its parent process (the shell service process) dies.
+        prctl(PR_SET_PDEATHSIG, SIGKILL);
+        if (getppid() == 1) {
+            // Parent died before the signal was armed.
+            _exit(1);
+        }
 
         int pts = open(devname, O_RDWR);
         if (pts < 0) exit(-1);

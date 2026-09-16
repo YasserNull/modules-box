@@ -2,7 +2,9 @@ package com.yassernull.nullbox.ui.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.yassernull.nullbox.data.model.Module
 import com.yassernull.nullbox.data.model.RemoteModule
+import com.yassernull.nullbox.data.repository.DownloadModuleResult
 import com.yassernull.nullbox.data.repository.RepoRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -61,20 +63,29 @@ class RepoViewModel(private val repository: RepoRepository) : ViewModel() {
         }
     }
 
-    fun downloadModule(module: RemoteModule, onComplete: () -> Unit) {
+    fun downloadModule(module: RemoteModule, onComplete: () -> Unit, onNeedsInstall: (Module) -> Unit) {
         val repoUrl = module.repository
         if (_downloadStates.value[repoUrl] == DownloadState.DOWNLOADING) return
 
         viewModelScope.launch {
             _downloadStates.update { it + (repoUrl to DownloadState.DOWNLOADING) }
 
-            val success = repository.downloadModule(module)
-            
-            if (success) {
-                _downloadStates.update { it + (repoUrl to DownloadState.COMPLETED) }
-                onComplete() // إعلام الواجهة باكتمال التنزيل لتحديث قائمة الوحدات المحلية.
-            } else {
-                _downloadStates.update { it + (repoUrl to DownloadState.FAILED) }
+            when (val result = repository.downloadModule(module)) {
+                is DownloadModuleResult.Downloaded -> {
+                    _downloadStates.update { it + (repoUrl to DownloadState.COMPLETED) }
+                    onComplete() // إعلام الواجهة باكتمال التنزيل لتحديث قائمة الوحدات المحلية.
+                }
+
+                is DownloadModuleResult.NeedsTerminalInstall -> {
+                    // The module declares an install script: it must run in an Alpine
+                    // terminal before it appears in the installed list.
+                    _downloadStates.update { it + (repoUrl to DownloadState.COMPLETED) }
+                    onNeedsInstall(result.module)
+                }
+
+                DownloadModuleResult.Failed -> {
+                    _downloadStates.update { it + (repoUrl to DownloadState.FAILED) }
+                }
             }
         }
     }

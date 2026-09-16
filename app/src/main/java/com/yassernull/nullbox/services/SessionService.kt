@@ -27,6 +27,7 @@ import com.yassernull.nullbox.ipc.RishDaemon
 import com.yassernull.nullbox.ui.activities.TerminalActivity
 import com.yassernull.nullbox.ui.activities.terminal.MkSession
 import com.yassernull.nullbox.ui.activities.terminal.WorkingMode
+import com.yassernull.nullbox.utils.ShizukuServiceManager
 
 class SessionService : Service() {
     private val prefs by lazy { AppPreferences(this) }
@@ -51,10 +52,23 @@ class SessionService : Service() {
             sessionList.clear()
             sessionFontSizes.clear()
             updateNotification()
+            ShizukuServiceManager.unbindShellService()
         }
 
-        fun createSession(id: String, client: TerminalSessionClient, activity: Activity, workingMode: Int): TerminalSession {
-            return MkSession.createSession(activity, client, id, workingMode = workingMode).also {
+        fun createSession(
+            id: String,
+            client: TerminalSessionClient,
+            activity: Activity,
+            workingMode: Int,
+            installCommand: String? = null
+        ): TerminalSession {
+            return MkSession.createSession(
+                activity,
+                client,
+                id,
+                workingMode = workingMode,
+                installCommand = installCommand
+            ).also {
                 it.mSessionName = id
                 sessions[id] = it
                 sessionList[id] = workingMode
@@ -106,11 +120,8 @@ class SessionService : Service() {
 
         fun terminateSession(id: String) {
             runCatching {
-                sessions[id]?.apply {
-                    if (emulator != null) {
-                        sessions[id]?.finishIfRunning()
-                    }
-                }
+                // Always finish the session so shizuku sessions kill their shell process.
+                sessions[id]?.finishIfRunning()
 
                 sessions.remove(id)
                 sessionList.remove(id)
@@ -121,7 +132,17 @@ class SessionService : Service() {
                 } else {
                     updateNotification()
                 }
+                unbindShizukuIfIdle()
             }.onFailure { it.printStackTrace() }
+        }
+    }
+
+    private fun unbindShizukuIfIdle() {
+        val hasShizuku = sessionList.values.any {
+            it == WorkingMode.SHIZUKU || it == WorkingMode.DISTRIBUTION_SHIZUKU
+        }
+        if (!hasShizuku) {
+            ShizukuServiceManager.unbindShellService()
         }
     }
 
@@ -136,6 +157,7 @@ class SessionService : Service() {
 
     override fun onDestroy() {
         sessions.forEach { s -> s.value.finishIfRunning() }
+        ShizukuServiceManager.unbindShellService()
         super.onDestroy()
     }
 
@@ -159,6 +181,7 @@ class SessionService : Service() {
         when (intent?.action) {
             "ACTION_EXIT" -> {
                 sessions.forEach { s -> s.value.finishIfRunning() }
+                ShizukuServiceManager.unbindShellService()
                 stopSelf()
             }
         }

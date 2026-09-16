@@ -103,6 +103,10 @@ fun Downloader(
         showShizukuWarning = false
         setupFinished = true
         Rootfs.recheck()
+        // Signal the parent (TerminalActivity) to recompose from this Downloader to the
+        // terminal. Rootfs.recheck() alone isn't enough: the parent's branch condition is
+        // a plain filesystem/prefs check, not Compose state, so nothing would recompose it.
+        Rootfs.setupComplete.value = true
     }
 
     // After setup finishes, the parent (TerminalActivity) will recompose and show

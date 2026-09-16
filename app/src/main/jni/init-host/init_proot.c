@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/prctl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -16,39 +17,6 @@ void add_proot_arg(const char *arg) {
   strcat(proot_args, arg);
 }
 
-void bind_android_dirs() {
-
-  uid_t uid = getuid();
-  if (uid != 0 && uid != 2000)
-    add_proot_arg("-b /sdcard -b /storage");
-    return;
-
-  DIR *dir = opendir("/");
-  if (!dir)
-    return;
-
-  struct dirent *entry;
-
-  while ((entry = readdir(dir))) {
-    if (entry->d_name[0] == '.')
-      continue;
-
-    if (skip_dir(entry->d_name))
-      continue;
-
-    printf("entry->d_name : %s\n", entry->d_name);
-    char path[MAX_PATH];
-    snprintf(path, sizeof(path), "/%s", entry->d_name);
-
-    if (access(path, F_OK) == 0) {
-      char arg[MAX_PATH];
-      snprintf(arg, sizeof(arg), "-b %s", path);
-      add_proot_arg(arg);
-    }
-  }
-
-  closedir(dir);
-}
 
 void init_proot_args() {
   add_proot_arg("-w /");
@@ -64,27 +32,12 @@ void init_proot_args() {
   
     add_proot_arg("--link2symlink");
   
-    add_proot_arg("-b /dev -b /sys -b /proc");
+    add_proot_arg("-b /dev -b /sys -b /proc -b /system -b /apex -b /cust -b /product -b /data -b /vendor -b /system_ext -b /odm -b /sdcard -b /storage");
     
-    bind_android_dirs();
+    
 
   add_proot_arg("-b /dev/urandom:/dev/random");
-uid_t uid = getuid();
-  if (uid == 0 || uid == 2000) {
-  snprintf(buf, sizeof(buf), "-b /proc/stat:/proc/stat");
-  add_proot_arg(buf);
 
-  snprintf(buf, sizeof(buf), "-b /proc/vmstat:/proc/vmstat");
-  add_proot_arg(buf);
-  
-  } else {
-snprintf(buf, sizeof(buf), "-b %s/stat:/proc/stat", local);
-  add_proot_arg(buf);
-
-  snprintf(buf, sizeof(buf), "-b %s/vmstat:/proc/vmstat", local);
-  add_proot_arg(buf);
-
-  }
   
   if (access("/proc/self/fd", F_OK) == 0)
     add_proot_arg("-b /proc/self/fd:/dev/fd");
@@ -114,6 +67,13 @@ int init_proot(int argc, char *argv[]) {
   }
 
   if (pid == 0) {
+    // Kill proot if init-host dies, so killing the terminal session's shell process
+    // also stops the guest instead of leaving it orphaned.
+    prctl(PR_SET_PDEATHSIG, SIGKILL);
+    if (getppid() == 1) {
+      _exit(1);
+    }
+
     // بناء argv لـ proot
     char *proot_argv[64];
     int i = 0;
@@ -145,8 +105,8 @@ int init_proot(int argc, char *argv[]) {
       // مع SU داخل التوزيعة
       if (argc <= 2) {
         snprintf(shell_cmd, sizeof(shell_cmd),
-                 "[ -f /etc/profile ] && . /etc/profile; "
-                 "[ -d $HOME ] && cd $HOME; exec %s",
+                 ". /etc/profile; "
+                 "cd $HOME; exec %s",
                  su_cmd);
       } else {
         // جمع arguments من argv[2] فما بعد
@@ -158,8 +118,8 @@ int init_proot(int argc, char *argv[]) {
         }
 
         snprintf(shell_cmd, sizeof(shell_cmd),
-                 "[ -f /etc/profile ] && . /etc/profile; "
-                 "[ -d $HOME ] && cd $HOME; exec %s -c '%s'",
+                 ". /etc/profile; "
+                 "cd $HOME; exec %s -c '%s'",
                  su_cmd, args);
       }
     } 

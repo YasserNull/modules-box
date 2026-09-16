@@ -14,6 +14,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -21,6 +22,7 @@ import com.google.accompanist.swiperefresh.SwipeRefresh
 import com.google.accompanist.swiperefresh.rememberSwipeRefreshState
 import com.yassernull.nullbox.R
 import com.yassernull.nullbox.data.model.Module
+import com.yassernull.nullbox.ui.activities.ModuleWebViewActivity
 import com.yassernull.nullbox.ui.viewmodels.DownloadState
 import com.yassernull.nullbox.ui.viewmodels.RepoViewModel
 
@@ -30,6 +32,7 @@ fun RepoScreen(
     viewModel: RepoViewModel,
     installedModules: List<Module>,
     onDownloadComplete: () -> Unit,
+    onNeedsInstall: (Module) -> Unit,
     searchQuery: String
 ) {
     val remoteModules by viewModel.modules.collectAsState()
@@ -37,6 +40,8 @@ fun RepoScreen(
     val downloadStates by viewModel.downloadStates.collectAsState()
     val errorMessageKey by viewModel.errorMessage.collectAsState()
     val rawJsonForDebug by viewModel.rawJsonForDebug.collectAsState()
+
+    val context = LocalContext.current
 
     val installedModuleIds = remember(installedModules) { installedModules.map { it.id }.toSet() }
 
@@ -108,7 +113,12 @@ fun RepoScreen(
                         RepoItem(
                             module = module,
                             downloadState = downloadStates[module.repository] ?: DownloadState.IDLE,
-                            onButtonClick = { viewModel.downloadModule(module, onDownloadComplete) }
+                            onButtonClick = { viewModel.downloadModule(module, onDownloadComplete, onNeedsInstall) },
+                            onModuleClick = {
+                                module.readmeUrl?.let { url ->
+                                    ModuleWebViewActivity.launch(context, "", url, module.name)
+                                }
+                            }
                         )
                     }
                 }

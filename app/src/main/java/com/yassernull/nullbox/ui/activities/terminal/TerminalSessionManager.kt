@@ -28,7 +28,8 @@ class TerminalSessionManager(
     private val terminalTextColorArgb: Int,
     private val effectiveTerminalBackgroundColorArgb: Int,
     private val terminalCursorColorArgb: Int,
-    private val onSessionCreated: ((String) -> Unit)? = null
+    private val onSessionCreated: ((String) -> Unit)? = null,
+    private val installCommand: String? = null
 ) {
 
     /**
@@ -67,7 +68,8 @@ class TerminalSessionManager(
                     sessionId,
                     client,
                     activity,
-                    workingMode = workingMode
+                    workingMode = workingMode,
+                    installCommand = installCommand
                 )
                 binder.getService().sessionDisplayNames[sessionId] = getSessionTitle(activity, workingMode, sessionId)
 
@@ -78,6 +80,10 @@ class TerminalSessionManager(
                     backgroundColorArgb = effectiveTerminalBackgroundColorArgb,
                     cursorColorArgb = terminalCursorColorArgb
                 )
+                // Always report the created session id, even when the activity is a
+                // TerminalActivity (the install-session flow needs it to run the script
+                // and detect when it finishes).
+                onSessionCreated?.invoke(sessionId)
             }
         } else {
             binder.getService().sessionDisplayNames[sessionId] = getSessionTitle(activity, workingMode, sessionId)
@@ -108,6 +114,9 @@ class TerminalSessionManager(
         )
 
         scope.launch(Dispatchers.IO) {
+            // Hoisted so the catch block can kill a shell that was spawned but whose
+            // session could not be registered (otherwise its root process leaks).
+            var handleRef: ShizukuShellHandle? = null
             try {
                 val isDistro = workingMode == WorkingMode.DISTRIBUTION_SHIZUKU
                 val shell = "/system/bin/sh"
@@ -125,12 +134,18 @@ class TerminalSessionManager(
                     } else {
                         "/system/bin/linker"
                     }
-                    arrayOf(shell, "-c", "$linker $initFile proot")
+                    // An install command is appended as an extra arg so init-host runs it
+                    // non-interactively (`sh -c '<command>'`) — no shell prompt, no echo.
+                    val prootCmd = if (installCommand != null) {
+                        "$linker $initFile proot '$installCommand'"
+                    } else {
+                        "$linker $initFile proot"
+                    }
+                    arrayOf(shell, "-c", prootCmd)
                 } else {
                     arrayOf(shell)
                 }
 
-                var handleRef: ShizukuShellHandle? = null
                 val env = MkSession.buildAndroidEnv(activity, sessionId, workingMode)
 
                 val (ptyInfo, handle) = startShizukuShell(
@@ -208,11 +223,15 @@ class TerminalSessionManager(
                             backgroundColorArgb = effectiveTerminalBackgroundColorArgb,
                             cursorColorArgb = terminalCursorColorArgb
                         )
+                        onSessionCreated?.invoke(sessionId)
                     } else {
                         onSessionCreated?.invoke(sessionId)
                     }
                 }
             } catch (e: Throwable) {
+                // If startShizukuShell already spawned a process but the session could not
+                // be created/attached, kill it so it doesn't linger as an orphaned root shell.
+                handleRef?.stop()
                 Log.e("TerminalSessionManager", "Privileged session failed", e)
             }
         }

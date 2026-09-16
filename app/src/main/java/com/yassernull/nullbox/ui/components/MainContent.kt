@@ -12,6 +12,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -23,12 +26,12 @@ import com.google.accompanist.swiperefresh.rememberSwipeRefreshState
 import com.yassernull.nullbox.R
 import com.yassernull.nullbox.data.model.Module
 import com.yassernull.nullbox.ui.activities.ModuleWebViewActivity
+import com.yassernull.nullbox.ui.dialogs.ModuleLogDialog
 import com.yassernull.nullbox.ui.viewmodels.ModuleViewModel
 import com.yassernull.nullbox.utils.ModuleInstaller
 import com.yassernull.nullbox.utils.PortManager
 import java.io.File
 
-// المحتوى الرئيسي لشاشة الوحدات المثبتة.
 @Composable
 fun MainContent(
     viewModel: ModuleViewModel,
@@ -36,8 +39,12 @@ fun MainContent(
 ) {
     val modules by viewModel.modules.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val runningModules by viewModel.runningModules.collectAsState()
+    val startingModules by viewModel.startingModules.collectAsState()
 
-    // تصفية الوحدات بناءً على استعلام البحث.
+    var showLogDialog by remember { mutableStateOf(false) }
+    var selectedModuleLogs by remember { mutableStateOf("") }
+
     val filteredModules = if (searchQuery.isBlank()) {
         modules
     } else {
@@ -48,17 +55,14 @@ fun MainContent(
         }
     }
 
-    // استخدام rememberSwipeRefreshState من مكتبة Accompanist القديمة لتجنب أخطاء الترجمة
     val swipeRefreshState = rememberSwipeRefreshState(isRefreshing = isLoading)
 
-    // حاوية تدعم السحب للتحديث.
     SwipeRefresh(
         state = swipeRefreshState,
         onRefresh = { viewModel.refreshModules() },
         modifier = Modifier.fillMaxSize()
     ) {
         if (isLoading && filteredModules.isEmpty()) {
-            // عرض مؤشر التحميل في المنتصف.
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
@@ -66,11 +70,10 @@ fun MainContent(
                 CircularProgressIndicator()
             }
         } else if (filteredModules.isEmpty()) {
-            // عرض رسالة في حالة عدم وجود وحدات أو نتائج بحث.
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .verticalScroll(rememberScrollState()) // جعلها قابلة للتمرير لتمكين السحب.
+                    .verticalScroll(rememberScrollState())
                     .padding(16.dp),
                 contentAlignment = Alignment.Center
             ) {
@@ -87,101 +90,94 @@ fun MainContent(
                 )
             }
         } else {
-            // عرض قائمة الوحدات.
             val context = LocalContext.current
-            val scriptNotFoundMessage = stringResource(id = R.string.script_not_found)
 
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(vertical = 4.dp)
             ) {
                 items(items = filteredModules, key = { it.id }) { module ->
+                    val runningState = runningModules[module.id]
+                    val isRunning = runningState != null
+                    val isStarting = startingModules.contains(module.id)
+                    val port = runningState?.port
+
                     ModuleItem(
                         module = module,
+                        isRunning = isRunning,
+                        isStarting = isStarting,
+                        port = port,
                         onModuleClick = {
-                            openModule(context, module, scriptNotFoundMessage)
+                            openModule(context, module, port)
+                        },
+                        onOpenInBrowserClick = {
+                            openInBrowser(context, module, port)
                         },
                         onStartClick = {
-                            // زر التشغيل حالياً لا يفعل شيئاً
+                            viewModel.startModule(context, module)
+                        },
+                        onStopClick = {
+                            viewModel.stopModule(context, module)
                         },
                         onDeleteClick = {
                             viewModel.uninstallModule(module)
+                        },
+                        onLogClick = {
+                            selectedModuleLogs = viewModel.getModuleLogs(module.id)
+                            showLogDialog = true
                         }
                     )
                 }
             }
         }
     }
+
+    if (showLogDialog) {
+        ModuleLogDialog(
+            logText = selectedModuleLogs,
+            onDismissRequest = { showLogDialog = false }
+        )
+    }
 }
 
-/**
- * فتح الوحدة:
- * - إذا كان there HTML → تشغيل php -S localhost:$PORT وفتح http://localhost:$PORT/$HTML
- * - إذا لم يكن there HTML → تشغيل npm start
- */
 private fun openModule(
     context: android.content.Context,
     module: Module,
-    scriptNotFoundMessage: String
+    currentPort: Int?
 ) {
-    val html = module.html
-    
-    if (!html.isNullOrBlank()) {
-        // الوحدة تحتوي على ملف HTML → تشغيل PHP server
-        startPhpServerAndOpen(context, module, html)
+    // Node modules have no html file — they serve from the server root (/).
+    val url = moduleUrl(module, currentPort)
+    if (url != null) {
+        ModuleWebViewActivity.launch(context, module.path, url, module.name)
     } else {
-        // الوحدة لا تحتوي على HTML → تشغيل npm start
-        startWebServerModule(context, module)
+        Toast.makeText(context, "الوحدة غير قيد التشغيل", android.widget.Toast.LENGTH_SHORT).show()
     }
 }
 
-/**
- * تشغيل PHP server وفتح الملف في WebView.
- */
-private fun startPhpServerAndOpen(
+private fun openInBrowser(
     context: android.content.Context,
     module: Module,
-    html: String
+    currentPort: Int?
 ) {
-    // التحقق من وجود ملف HTML
-    val htmlFile = File(module.path, html)
-    if (!htmlFile.exists()) {
-        Toast.makeText(context, "ملف HTML غير موجود: $html", Toast.LENGTH_SHORT).show()
-        return
+    val url = moduleUrl(module, currentPort)
+    if (url != null) {
+        try {
+            val intent = android.content.Intent(
+                android.content.Intent.ACTION_VIEW,
+                android.net.Uri.parse(url)
+            )
+            context.startActivity(intent)
+        } catch (e: Exception) {
+            Toast.makeText(context, "الوحدة غير قيد التشغيل", android.widget.Toast.LENGTH_SHORT).show()
+        }
+    } else {
+        Toast.makeText(context, "الوحدة غير قيد التشغيل", android.widget.Toast.LENGTH_SHORT).show()
     }
-
-    // تشغيل PHP server
-    val port = ModuleInstaller.startPhpServer(context, module)
-    if (port == null) {
-        Toast.makeText(context, "فشل في تشغيل الخادم", Toast.LENGTH_SHORT).show()
-        return
-    }
-
-    // فتح الرابط في WebView
-    val url = "http://localhost:$port/$html"
-    ModuleWebViewActivity.launch(context, module.path, url, module.name)
 }
 
-/**
- * تشغيل وحدة خادم ويب (npm start) في بيئة Alpine مع بورت عشوائي.
- */
-private fun startWebServerModule(
-    context: android.content.Context,
-    module: Module
-) {
-    // توليد بورت عشوائي
-    val port = PortManager.generateAvailablePort(context)
-    if (port == null) {
-        Toast.makeText(context, "لا يوجد بورت متاح", Toast.LENGTH_SHORT).show()
-        return
-    }
-    
-    // تسجيل البورت
-    if (!PortManager.acquirePort(context, port)) {
-        Toast.makeText(context, "فشل في تخصيص البورت", Toast.LENGTH_SHORT).show()
-        return
-    }
-    
-    // تشغيل npm start في بيئة Alpine
-    ModuleInstaller.runInstallScript(context, module)
+/** Public URL of a running module, or null when it is not running. */
+private fun moduleUrl(module: Module, currentPort: Int?): String? {
+    val port = currentPort ?: return null
+    val page = module.html?.takeIf { it.isNotBlank() }?.let { "/$it" } ?: "/"
+    return "http://localhost:$port$page"
 }

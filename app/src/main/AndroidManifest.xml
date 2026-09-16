@@ -18,7 +18,8 @@
         android:icon="@mipmap/ic_launcher"
         android:theme="@style/app_theme"
         android:supportsRtl="true"
-        android:usesCleartextTraffic="false">
+        android:usesCleartextTraffic="false"
+        android:networkSecurityConfig="@xml/network_security_config">
 
         <provider
             android:name=".providers.DistributionDocumentProvider"

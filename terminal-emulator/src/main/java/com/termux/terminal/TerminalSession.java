@@ -302,7 +302,7 @@ public final class TerminalSession extends TerminalOutput {
       try {
         if (mExternalPty && mExternalProcessHandler != null) {
           mExternalProcessHandler.requestTerminate(mShellPid);
-        } else {
+        } else if (mShellPid > 0) {
           Os.kill(mShellPid, OsConstants.SIGKILL);
         }
       } catch (ErrnoException e) {

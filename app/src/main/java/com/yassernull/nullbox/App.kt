@@ -2,6 +2,7 @@ package com.yassernull.nullbox
 
 import android.app.Application
 import com.yassernull.nullbox.ipc.RishDaemon
+import com.yassernull.nullbox.utils.ShizukuServiceManager
 import com.yassernull.nullbox.utils.application
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
@@ -39,5 +40,9 @@ class App : Application() {
         }
 
         RishDaemon.start(this)
+
+        // Register the sticky Shizuku binder listener and warm the shell service in
+        // the background, so the first Play/install tap finds it already bound.
+        runCatching { ShizukuServiceManager.init(this) }
     }
 }
