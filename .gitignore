@@ -1,0 +1,6 @@
+.gradle/
+build/
+app/src/main/jniLibs/
+terminal-view/build/
+terminal-emulator/build/
+local.properties

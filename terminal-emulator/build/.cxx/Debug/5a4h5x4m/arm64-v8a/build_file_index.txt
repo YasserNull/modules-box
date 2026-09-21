@@ -1,1 +1,0 @@
-/data/data/com.termux/files/home/null-box/terminal-emulator/src/main/jni/Android.mk

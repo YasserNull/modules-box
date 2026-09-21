@@ -42,7 +42,7 @@
             android:name=".ipc.RishReceiver"
             android:exported="true">
             <intent-filter>
-                <action android:name="com.yassernull.nullbox.RISH" />
+                <action android:name="com.yassernull.modulesbox.RISH" />
             </intent-filter>
         </receiver>
 

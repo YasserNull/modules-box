@@ -277,13 +277,13 @@ int main(int argc, char *argv[]) {
   char resolved[PATH_MAX];
 
   if (realpath(argv[0], resolved)) {
-    if (strcmp(resolved, "/data/local/tmp/null-box/bin/init-host") == 0) {
-      snprintf(prefix, sizeof(prefix), "/data/local/tmp/null-box");
+    if (strcmp(resolved, "/data/local/tmp/modules-box/bin/init-host") == 0) {
+      snprintf(prefix, sizeof(prefix), "/data/local/tmp/modules-box");
       snprintf(local, sizeof(local), "%s", prefix);
 
-    } else if (strcmp(resolved, "/data/local/tmp/null-box/bin/init-host") == 0) {
+    } else if (strcmp(resolved, "/data/local/tmp/modules-box/bin/init-host") == 0) {
       snprintf(prefix, sizeof(prefix), "/data/local/tmp");
-      snprintf(local, sizeof(local), "%s/null-box", prefix);
+      snprintf(local, sizeof(local), "%s/modules-box", prefix);
     }
   } else {
     return 1;

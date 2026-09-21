@@ -27,7 +27,7 @@ int main(int argc, char **argv) {
     }
 
     pid_t pid = getpid();
-    const char *base_dir = "/data/data/com.yn.setbox/tmp";
+    const char *base_dir = "/data/data/com.yassernull.modulesbox/tmp";
     char base[512];
     snprintf(base, sizeof(base), "%s/rish-%d", base_dir, (int)pid);
 

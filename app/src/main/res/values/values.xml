@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Null Box</string>
+    <string name="app_name">Modules Box</string>
     <string name="installing_module">Installing module…</string>
     <string name="search">Search</string>
     <string name="no_modules_found">No modules found. Start by installing one from the repository or a ZIP file.</string>
@@ -132,7 +132,7 @@
     <string name="no">No</string>
 
     <!-- Documents provider -->
-    <string name="application_name">Null Box</string>
+    <string name="application_name">Modules Box</string>
 
     <!-- Module run/log -->
     <string name="stop">Stop</string>

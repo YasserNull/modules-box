@@ -14,12 +14,12 @@ plugins {
 }
 
 android {
-    namespace = "com.yassernull.nullbox"
+    namespace = "com.yassernull.modulesbox"
     compileSdk = 34
     buildToolsVersion = "35.0.0"
-    ndkVersion = "27.1.12297006"
+    ndkVersion = "29.0.14206865"
     defaultConfig {
-        applicationId = "com.yassernull.nullbox"
+        applicationId = "com.yassernull.modulesbox"
         minSdk = 24
         targetSdk = 34
         versionCode = 1

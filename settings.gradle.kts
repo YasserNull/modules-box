@@ -16,7 +16,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "null-box"
+rootProject.name = "modules-box"
 include(":app")
 include(":terminal-emulator")
 include(":terminal-view")
