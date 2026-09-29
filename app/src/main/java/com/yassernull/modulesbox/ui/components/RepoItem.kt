@@ -23,7 +23,7 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.LayoutDirection 
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import coil.compose.rememberAsyncImagePainter
 import com.yassernull.modulesbox.R
@@ -108,22 +108,13 @@ fun RepoItem(
                         )
                     }
                     Spacer(modifier = Modifier.height(4.dp))
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            Icons.Default.Download,
-                            contentDescription = stringResource(R.string.download),
-                            modifier = Modifier.size(14.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = formatDownloads(module.downloads),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                    // The index carries no download count, so the row shows the version the
+                    // download button will actually fetch.
+                    Text(
+                        text = module.version,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
 
                 Spacer(modifier = Modifier.width(8.dp))
@@ -171,9 +162,11 @@ private fun RepoIcon(
     module: RemoteModule,
     modifier: Modifier = Modifier
 ) {
+    // iconPath is null until the icon finishes downloading (or when the index entry has no
+    // icon), so the letter avatar is the placeholder rather than a broken image.
     val iconFile = module.iconPath?.takeIf { it.isNotBlank() }?.let(::File)
 
-    if (iconFile != null && iconFile.exists()) {
+    if (iconFile != null && iconFile.exists() && iconFile.length() > 0L) {
         Image(
             painter = rememberAsyncImagePainter(model = iconFile),
             contentDescription = module.name,
@@ -197,13 +190,6 @@ private fun RepoIcon(
             color = MaterialTheme.colorScheme.onPrimaryContainer
         )
     }
-}
-
-// Compact count: 4, 26, 290, 1k, 12k, 108k — never full digits.
-private fun formatDownloads(count: Long): String = when {
-    count < 1_000 -> count.toString()
-    count < 1_000_000 -> "${count / 1_000}k"
-    else -> "${count / 1_000_000}M"
 }
 
 @Composable

@@ -1,5 +1,6 @@
 package com.yassernull.modulesbox.ui.components
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -109,11 +110,13 @@ fun RepoScreen(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(vertical = 4.dp)
                 ) {
-                    items(filteredModulesToShow, key = { it.repository }) { module ->
+                    items(filteredModulesToShow, key = { it.id }) { module ->
                         RepoItem(
                             module = module,
-                            downloadState = downloadStates[module.repository] ?: DownloadState.IDLE,
-                            onButtonClick = { viewModel.downloadModule(module, onDownloadComplete, onNeedsInstall) },
+                            downloadState = downloadStates[module.id] ?: DownloadState.IDLE,
+                            onButtonClick = { viewModel.downloadModule(module, onDownloadComplete, onNeedsInstall) { reason ->
+                                Toast.makeText(context, context.getString(R.string.install_failed), Toast.LENGTH_LONG).show()
+                            } },
                             onModuleClick = {
                                 module.readmeUrl?.let { url ->
                                     ModuleWebViewActivity.launch(context, "", url, module.name)

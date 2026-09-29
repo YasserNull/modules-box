@@ -81,37 +81,33 @@ class ModuleViewModel(
         viewModelScope.launch {
             _startingModules.value = _startingModules.value + module.id
 
-            val port = PortManager.generateAvailablePort(context)
-            if (port == null) {
-                _startingModules.value = _startingModules.value - module.id
-                Toast.makeText(context, context.getString(R.string.module_start_failed), Toast.LENGTH_SHORT).show()
-                return@launch
-            }
-
-            if (!PortManager.acquirePort(context, port)) {
-                _startingModules.value = _startingModules.value - module.id
-                Toast.makeText(context, context.getString(R.string.module_start_failed), Toast.LENGTH_SHORT).show()
-                return@launch
-            }
-
             if (ModuleInstaller.DEBUG_RUN_IN_TERMINAL) {
                 // Debug: run visibly in the terminal so all output can be read.
                 // Marked running so the Stop button + port UI appear; close the
-                // terminal manually, then press Stop to release the port.
-                ModuleInstaller.launchRunTerminal(context, module, ModuleInstaller.getServerCommand(module, port))
-                _runningModules.value = _runningModules.value + (module.id to ModuleRunningState(port, module.id))
+                // terminal manually, then press Stop to release the port. A module
+                // with its own start script reports its port over fd 4, which nothing
+                // reads in this mode, so the port shown here is only the placeholder.
+                val debugPort = PortManager.generateAvailablePort(context)
+                if (debugPort == null || !PortManager.acquirePort(context, debugPort)) {
+                    _startingModules.value = _startingModules.value - module.id
+                    Toast.makeText(context, context.getString(R.string.module_start_failed), Toast.LENGTH_SHORT).show()
+                    return@launch
+                }
+                ModuleInstaller.launchRunTerminal(context, module, ModuleInstaller.getServerCommand(module, debugPort))
+                _runningModules.value = _runningModules.value + (module.id to ModuleRunningState(debugPort, module.id))
                 _startingModules.value = _startingModules.value - module.id
-                Toast.makeText(context, "تم تشغيل الوحدة", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, context.getString(R.string.module_started), Toast.LENGTH_SHORT).show()
                 return@launch
             }
 
-            val success = ModuleInstaller.startModuleServer(context, module, port)
+            // The port is resolved by ModuleInstaller: modules without a start script
+            // get one allocated there, modules with one report it back themselves.
+            val port = ModuleInstaller.startModuleServer(context, module)
 
-            if (success) {
+            if (port != null) {
                 _runningModules.value = _runningModules.value + (module.id to ModuleRunningState(port, module.id))
-                Toast.makeText(context, "تم تشغيل الوحدة", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, context.getString(R.string.module_started), Toast.LENGTH_SHORT).show()
             } else {
-                PortManager.releasePort(context, port)
                 _resultDialogText.value = ModuleInstaller.getCommandOutput(module.id)
                 _showResultDialog.value = true
             }
@@ -121,7 +117,9 @@ class ModuleViewModel(
     }
 
     fun stopModule(context: Context, module: Module) {
-        ModuleInstaller.stopModuleServer(context, module)
+        // Releasing the port also republishes used_ports.txt, so custom start scripts
+        // see the freed port immediately.
+        viewModelScope.launch { ModuleInstaller.stopModuleServer(context, module) }
         _runningModules.value = _runningModules.value - module.id
         Toast.makeText(context, context.getString(R.string.module_stopped), Toast.LENGTH_SHORT).show()
     }
@@ -129,7 +127,7 @@ class ModuleViewModel(
     fun installModuleFromZip(uri: Uri, context: Context, onNeedsInstall: (Module) -> Unit) {
         viewModelScope.launch {
             _isLoading.value = true
-            when (val result = repository.installFromZip(uri, context)) {
+            when (val result = repository.installFromZip(uri)) {
                 is ZipInstallResult.Installed -> {
                     Toast.makeText(context, context.getString(R.string.install_success), Toast.LENGTH_SHORT).show()
                     refreshModules()

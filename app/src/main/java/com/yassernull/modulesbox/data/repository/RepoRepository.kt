@@ -4,24 +4,21 @@ import android.content.Context
 import android.util.Log
 import com.yassernull.modulesbox.data.model.Module
 import com.yassernull.modulesbox.data.model.RemoteModule
-import com.yassernull.modulesbox.utils.PrivilegedFileOps
-import com.yassernull.modulesbox.utils.distributionDir
-import com.yassernull.modulesbox.utils.isDistroShizukuRoot
 import io.ktor.client.*
-import io.ktor.client.call.*
 import io.ktor.client.engine.android.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
+import io.ktor.http.encodeURLPathPart
 import io.ktor.http.isSuccess
+import io.ktor.utils.io.jvm.javaio.toInputStream
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
+import org.json.JSONObject
 import java.io.File
-import java.io.FileOutputStream
-import java.util.Properties
 
 // كائن يمثل نتيجة عملية جلب المستودع.
 data class RepoFetchResult(
@@ -41,36 +38,56 @@ data class RepoFetchResult(
 sealed class DownloadModuleResult {
     object Downloaded : DownloadModuleResult()
     data class NeedsTerminalInstall(val module: Module) : DownloadModuleResult()
-    object Failed : DownloadModuleResult()
+
+    /**
+     * [reason] is carried instead of dropped: the common cause is a store entry whose
+     * release was never published, which the user must be told about rather than shown
+     * as a row that silently does nothing.
+     */
+    data class Failed(val reason: String) : DownloadModuleResult()
 }
 
 // مستودع لإدارة التفاعل مع المستودع عن بعد (جلب القائمة وتنزيل الوحدات).
 //
-// الفكرة: منظمة modules-box-repo على GitHub يشارك فيها الكل وحداته — كل وحدة في
-// مستودع مستقل. نجلب أسماء المستودعات من API المنظمة (مع ترقيم الصفحات)، ثم نقرأ
-// ملف module.prop والأيقونة من كل مستودع.
+// الفكرة: ملف repository.json واحد في مستودع مركزي هو المصدر الوحيد لقائمة المتجر —
+// كل عنصر يحدد الوحدة ونسختها (version) ومستودعها. التنزيل لا يلمس محتويات المستودع
+// أبداً: ينزّل أرشيف النسخة (release) المنشور تحت الوسم المذكور في الفهرس، وهو نفس
+// الأرشيف الذي ينزّله المستخدم لو نزّله بنفسه، ثم يمرّره على مسار التثبيت المشترك.
 class RepoRepository(private val context: Context) {
 
-    private val modulesRootPath by lazy { File(context.filesDir, "modules").absolutePath }
     private val client = HttpClient(Android)
 
+    /** Extract/unpack/install logic, shared with the "install from storage" flow. */
+    private val moduleRepository by lazy { ModuleRepository(context) }
+
     companion object {
-        const val ORG = "modules-box-repo"
         private const val TAG = "RepoRepository"
-        private const val API_PAGE_SIZE = 100
-        private val BRANCHES = listOf("main", "master")
+
+        /**
+         * The store index: one JSON array describing every module and the version to fetch.
+         * Served from raw.githubusercontent.com, so listing costs one request and is not
+         * subject to the api.github.com rate limit that a per-repo listing would hit.
+         */
+        const val REPOSITORY_INDEX_URL =
+            "https://raw.githubusercontent.com/modules-box-repo/repository/refs/heads/main/repository.json"
+
+        /** Icon fetches run in small batches: one per module is 20+ requests. */
+        private const val ICON_CONCURRENCY = 4
     }
 
-    // جلب قائمة الوحدات: أسماء مستودعات المنظمة ثم module.prop لكل واحد.
+    // جلب قائمة المتجر من ملف repository.json المركزي.
     suspend fun getRepoModules(): RepoFetchResult {
         return withContext(Dispatchers.IO) {
             try {
-                val names = fetchOrgRepoNames()
-                val modules = coroutineScope {
-                    names.map { name ->
-                        async { fetchRemoteModule(name) }
-                    }.awaitAll().filterNotNull()
+                val response = client.get(REPOSITORY_INDEX_URL)
+                if (!response.status.isSuccess()) {
+                    Log.w(TAG, "index fetch failed: ${response.status}")
+                    return@withContext RepoFetchResult(errorMessage = "repo_load_failed")
                 }
+                val body = response.bodyAsText()
+                val array = JSONArray(body)
+                val modules = (0 until array.length()).mapNotNull { parseRemoteModule(array.optJSONObject(it)) }
+                Log.i(TAG, "getRepoModules: ${modules.size} module(s) from index")
                 RepoFetchResult(modules = modules)
             } catch (e: Exception) {
                 Log.w(TAG, "getRepoModules failed", e)
@@ -79,235 +96,174 @@ class RepoRepository(private val context: Context) {
         }
     }
 
-    // أسماء كل مستودعات المنظمة العامة مع ترقيم الصفحات.
-    private suspend fun fetchOrgRepoNames(): List<String> {
-        val names = mutableListOf<String>()
-        var page = 1
-        while (true) {
-            val url = "https://api.github.com/users/$ORG/repos?per_page=$API_PAGE_SIZE&page=$page"
-            val body = client.get(url).bodyAsText()
-            val array = JSONArray(body)
-            if (array.length() == 0) break
-            for (i in 0 until array.length()) {
-                array.optJSONObject(i)?.optString("name")
-                    ?.takeIf { it.isNotBlank() }
-                    ?.let { names.add(it) }
-            }
-            if (array.length() < API_PAGE_SIZE) break
-            page++
-        }
-        return names
+    /**
+     * Maps one repository.json entry.
+     *
+     * The index is the store's only source of truth, so a row missing the fields needed to
+     * download it (repository, version) is dropped instead of shown and failing on tap.
+     */
+    private fun parseRemoteModule(obj: JSONObject?): RemoteModule? {
+        if (obj == null) return null
+        val id = obj.optString("id").takeIf { it.isNotBlank() } ?: return null
+        val repository = obj.optString("repository").trim().trimEnd('/')
+            .takeIf { it.startsWith("https://github.com/") } ?: return null
+        val version = obj.optString("version").takeIf { it.isNotBlank() } ?: return null
+        return RemoteModule(
+            id = id,
+            name = obj.optString("name").ifBlank { id },
+            description = obj.optString("description"),
+            author = obj.optString("author"),
+            version = version,
+            versionCode = jsonVersionCode(obj),
+            repository = repository,
+            icon = obj.optString("icon").trim().ifBlank { null },
+            // HEAD resolves to the repository's default branch, so this works for repos
+            // that have not renamed main to master.
+            readmeUrl = "$repository/blob/HEAD/README.md"
+        )
     }
 
-    // قراءة module.prop والأيقونة من مستودع واحد. رابط المستودع المشتق من القائمة
-    // هو المرجع (وليس حقل repository داخل الملف).
-    private suspend fun fetchRemoteModule(repoName: String): RemoteModule? {
-        return try {
-            val repoUrl = "https://github.com/$ORG/$repoName"
-            // النص مع الفرع الذي نجح (main ثم master) لبناء رابط README لاحقاً.
-            val (propText, branch) = downloadRawText(repoUrl, "module.prop") ?: return null
-            val props = Properties()
-            props.load(propText.reader())
-            val moduleId = props.getProperty("id") ?: return null
-            val iconFile = props.getProperty("icon")
-            val iconPath = if (!iconFile.isNullOrBlank()) {
-                downloadIcon(repoUrl, moduleId, iconFile)
-            } else {
-                null
+    /** versionCode is a number in the index but a string in module.prop. */
+    private fun jsonVersionCode(obj: JSONObject): String = when (val raw = obj.opt("versionCode")) {
+        null -> ""
+        is Number -> raw.toInt().toString()
+        else -> raw.toString().trim()
+    }
+
+    /**
+     * Downloads each module's icon to the cache and reports it through [onIconLoaded] as it
+     * arrives.
+     *
+     * Deliberately separate from [getRepoModules] and not awaited by it: the store has 20+
+     * icons, and making the list wait on all of them turns a slow connection into an empty
+     * screen. The list is shown first with letter avatars and the pictures fill in.
+     * [onIconLoaded] is called from a background dispatcher, so callers must hop back to
+     * their own scope before touching UI state.
+     */
+    suspend fun loadIcons(
+        modules: List<RemoteModule>,
+        onIconLoaded: (moduleId: String, localPath: String) -> Unit
+    ) {
+        val pending = modules.filter { !it.icon.isNullOrBlank() }
+        if (pending.isEmpty()) return
+        val dir = File(context.cacheDir, "repo_icons").apply { mkdirs() }
+        withContext(Dispatchers.IO) {
+            coroutineScope {
+                pending.chunked(ICON_CONCURRENCY).forEach { batch ->
+                    batch.map { module ->
+                        async {
+                            downloadIcon(module, dir)?.let { path -> onIconLoaded(module.id, path) }
+                        }
+                    }.awaitAll()
+                }
             }
-            RemoteModule(
-                id = moduleId,
-                name = props.getProperty("name") ?: moduleId,
-                description = props.getProperty("description") ?: "",
-                author = props.getProperty("author") ?: "",
-                version = props.getProperty("version") ?: "",
-                versionCode = props.getProperty("versionCode") ?: "",
-                repository = repoUrl,
-                iconPath = iconPath,
-                readmeUrl = "$repoUrl/blob/$branch/README.md",
-                downloads = fetchReleaseDownloads(repoName)
-            )
+        }
+        Log.i(TAG, "loadIcons: ${pending.size} icon(s) processed")
+    }
+
+    /**
+     * Fetches one icon from the module repository, or null if it is unavailable.
+     *
+     * Ref-uses HEAD instead of guessing main/master: the index does not carry a branch, and
+     * HEAD always points at the repository's default branch. A cached copy is reused, so
+     * re-opening the store does not re-download every icon.
+     */
+    private suspend fun downloadIcon(module: RemoteModule, cacheDir: File): String? {
+        val iconFile = module.icon ?: return null
+        val fileName = iconFile.substringAfterLast('/').takeIf { it.isNotBlank() } ?: return null
+        val target = File(cacheDir, "${module.id}_$fileName")
+        if (target.length() > 0L) return target.absolutePath
+        return try {
+            val url = "https://raw.githubusercontent.com/${module.repository.removePrefix("https://github.com/")}/HEAD/$iconFile"
+            val response = client.get(url)
+            if (!response.status.isSuccess()) {
+                Log.i(TAG, "icon unavailable for ${module.id}: $url (${response.status})")
+                return null
+            }
+            // Write to a temp name first: a half-written file would look like a valid cache
+            // hit on the next launch. Streamed, since a few module icons are 200KB+ and the
+            // store fetches twenty of them in a row.
+            val tmp = File(target.parentFile, "${target.name}.part")
+            tmp.outputStream().use { out ->
+                response.bodyAsChannel().toInputStream().use { input -> input.copyTo(out) }
+            }
+            if (tmp.length() == 0L) {
+                tmp.delete()
+                return null
+            }
+            tmp.renameTo(target)
+            Log.i(TAG, "icon cached for ${module.id} (${target.length()} bytes)")
+            target.absolutePath
         } catch (e: Exception) {
-            Log.w(TAG, "fetchRemoteModule failed: $repoName", e)
+            Log.w(TAG, "icon download failed for ${module.id}", e)
             null
         }
     }
 
-    // مجموع تحميلات كل ملفات كل النسخ (releases) — عدد تحميلات الوحدة.
-    private suspend fun fetchReleaseDownloads(repoName: String): Long {
-        var total = 0L
-        var page = 1
-        try {
-            while (true) {
-                val url = "https://api.github.com/repos/$ORG/$repoName/releases?per_page=$API_PAGE_SIZE&page=$page"
-                val array = JSONArray(client.get(url).bodyAsText())
-                if (array.length() == 0) break
-                for (i in 0 until array.length()) {
-                    val assets = array.optJSONObject(i)?.optJSONArray("assets") ?: continue
-                    for (j in 0 until assets.length()) {
-                        total += assets.optJSONObject(j)?.optLong("download_count", 0) ?: 0
-                    }
-                }
-                if (array.length() < API_PAGE_SIZE) break
-                page++
-            }
-        } catch (e: Exception) {
-            Log.w(TAG, "fetchReleaseDownloads failed: $repoName", e)
-        }
-        return total
-    }
-
-    // تنزيل أيقونة الوحدة إلى الكاش لعرضها في القائمة.
-    private suspend fun downloadIcon(repoUrl: String, moduleId: String, iconFile: String): String? {
-        return try {
-            val bytes = downloadRawBytes(repoUrl, iconFile) ?: return null
-            val dir = File(context.cacheDir, "repo_icons").apply { mkdirs() }
-            val safeName = iconFile.substringAfterLast('/').takeIf { it.isNotBlank() } ?: "icon"
-            val out = File(dir, "${moduleId}_$safeName")
-            out.writeBytes(bytes)
-            out.absolutePath
-        } catch (e: Exception) {
-            Log.w(TAG, "downloadIcon failed: $iconFile", e)
-            null
-        }
-    }
-
-    // بناء رابط الملف الخام على GitHub.
-    private fun getRawFileUrl(repoUrl: String, branch: String, fileName: String): String {
-        val path = repoUrl.removePrefix("https://github.com/")
-        return "https://raw.githubusercontent.com/$path/$branch/$fileName"
-    }
-
-    // جلب نص ملف من المستودع مع الفرع الناجح (main ثم master).
-    private suspend fun downloadRawText(repoUrl: String, fileName: String): Pair<String, String>? {
-        for (branch in BRANCHES) {
-            try {
-                val response: HttpResponse = client.get(getRawFileUrl(repoUrl, branch, fileName))
-                if (response.status.isSuccess()) {
-                    val text = response.bodyAsText()
-                    if (text.isNotBlank()) return text to branch
-                }
-            } catch (e: Exception) {
-                Log.w(TAG, "downloadRawText failed: $fileName ($branch)", e)
-            }
-        }
-        return null
-    }
-
-    // جلب ملف ثنائي من المستودع (main ثم master).
-    private suspend fun downloadRawBytes(repoUrl: String, fileName: String): ByteArray? {
-        for (branch in BRANCHES) {
-            try {
-                val response: HttpResponse = client.get(getRawFileUrl(repoUrl, branch, fileName))
-                if (response.status.isSuccess()) {
-                    val bytes: ByteArray = response.body()
-                    if (bytes.isNotEmpty()) return bytes
-                }
-            } catch (e: Exception) {
-                Log.w(TAG, "downloadRawBytes failed: $fileName ($branch)", e)
-            }
-        }
-        return null
-    }
-
-    // تنزيل ملفات وحدة معينة من مستودعها على GitHub.
+    // تنزيل نسخة الوحدة المنشورة (release) ثم تثبيتها.
     suspend fun downloadModule(remoteModule: RemoteModule): DownloadModuleResult {
         return withContext(Dispatchers.IO) {
-            try {
-            	triggerVisitorBadge(remoteModule)
-                // تنزيل module.prop أولاً للحصول على المعرف.
-                val modulePropContent = downloadRawText(remoteModule.repository, "module.prop")?.first
-                if (modulePropContent.isNullOrEmpty()) return@withContext DownloadModuleResult.Failed
-
-                val props = Properties()
-                props.load(modulePropContent.reader())
-                val moduleId = props.getProperty("id") ?: return@withContext DownloadModuleResult.Failed
-
-                val moduleDir = File(modulesRootPath, moduleId)
-                if (!moduleDir.exists()) moduleDir.mkdirs()
-
-                // حفظ الملفات التي تم تنزيلها.
-                saveContentToFile(modulePropContent, File(moduleDir, "module.prop"))
-
-                // تنزيل ملف HTML المشار إليه في خاصية "html".
-                val htmlPath = props.getProperty("html")
-                if (!htmlPath.isNullOrBlank()) {
-                    downloadAndSaveFile(remoteModule, htmlPath, moduleDir)
-                }
-
-                // تنزيل سكربت التثبيت المشار إليه في خاصية "install".
-                val installPath = props.getProperty("install")
-                if (!installPath.isNullOrBlank()) {
-                    downloadAndSaveFile(remoteModule, installPath, moduleDir)
-                }
-
-                // تنزيل أيقونة الوحدة المشار إليها في خاصية "icon".
-                val iconPath = props.getProperty("icon")
-                if (!iconPath.isNullOrBlank()) {
-                    downloadAndSaveFile(remoteModule, iconPath, moduleDir)
-                }
-
-                val module = Module(
-                    id = moduleId,
-                    name = props.getProperty("name") ?: moduleId,
-                    version = props.getProperty("version") ?: "",
-                    versionCode = props.getProperty("versionCode"),
-                    author = props.getProperty("author") ?: "",
-                    description = props.getProperty("description"),
-                    path = moduleDir.absolutePath,
-                    repository = remoteModule.repository,
-                    html = props.getProperty("html"),
-                    install = props.getProperty("install"),
-                    permission = props.getProperty("permission"),
-                    icon = props.getProperty("icon")
+            triggerVisitorBadge(remoteModule)
+            val archive = downloadReleaseArchive(remoteModule)
+                ?: return@withContext DownloadModuleResult.Failed(
+                    "no release asset for ${remoteModule.id} ${remoteModule.version}"
                 )
-
-                // If the module declares an install script and it was downloaded, it must run
-                // in a Debian terminal before the module counts as installed. If the script
-                // is missing (optional file that failed to download) the module counts as
-                // installed so it does not disappear from the list.
-                if (!installPath.isNullOrBlank() && File(moduleDir, installPath).exists()) {
-                    stageToProotDir(moduleDir, moduleId)
-                    DownloadModuleResult.NeedsTerminalInstall(module)
-                } else {
-                    if (!installPath.isNullOrBlank()) {
-                        markModuleInstalled(moduleId)
-                    }
-                    DownloadModuleResult.Downloaded
+            try {
+                when (val result = moduleRepository.installFromArchive(archive)) {
+                    ZipInstallResult.Installed -> DownloadModuleResult.Downloaded
+                    is ZipInstallResult.NeedsTerminalInstall ->
+                        DownloadModuleResult.NeedsTerminalInstall(result.module)
+                    is ZipInstallResult.Failed -> DownloadModuleResult.Failed(result.reason)
                 }
+            } finally {
+                archive.delete()
+            }
+        }
+    }
+
+    /**
+     * Downloads the module's published release asset for the tag named by the index version.
+     *
+     * The publishing convention is `<tag>.zip`. Releases published before that convention
+     * carry `<moduleId>.zip` instead, so the second candidate keeps those installs working
+     * until every release is renamed; both live under the same tag, so a 404 on the first
+     * just falls through to the next.
+     */
+    private suspend fun downloadReleaseArchive(remoteModule: RemoteModule): File? {
+        val tag = remoteModule.version.encodeURLPathPart()
+        val base = "${remoteModule.repository}/releases/download/$tag"
+        val candidates = listOf(
+            "$base/$tag.zip",
+            "$base/${remoteModule.id.encodeURLPathPart()}.zip"
+        )
+        val target = File(context.cacheDir, "release_${remoteModule.id}.zip")
+        for (candidate in candidates) {
+            try {
+                val response = client.get(candidate)
+                if (!response.status.isSuccess()) {
+                    Log.i(TAG, "release asset unavailable: $candidate (${response.status})")
+                    continue
+                }
+                // Streamed to disk: a module archive can be large and holding it in memory
+                // on a low-end device is an easy way to an OOM mid-install.
+                target.outputStream().use { out ->
+                    response.bodyAsChannel().toInputStream().use { input -> input.copyTo(out) }
+                }
+                if (target.length() == 0L) {
+                    Log.w(TAG, "empty release asset: $candidate")
+                    target.delete()
+                    continue
+                }
+                Log.i(TAG, "downloaded ${remoteModule.id} ${remoteModule.version} from $candidate (${target.length()} bytes)")
+                return target
             } catch (e: Exception) {
-                DownloadModuleResult.Failed
+                Log.w(TAG, "release download failed: $candidate", e)
             }
         }
+        return null
     }
 
-    private fun markModuleInstalled(moduleId: String) {
-        File(modulesRootPath, moduleId).let { dir ->
-            if (!dir.exists()) dir.mkdirs()
-            File(dir, ".installed").writeText("installed")
-        }
-    }
-
-    /** Copies the downloaded module files into the proot guest (elevated when in shizuku/root mode), so the install script can run inside Debian. */
-    private suspend fun stageToProotDir(moduleDir: File, moduleId: String) {
-        try {
-            val targetPath = File(distributionDir(), "opt/modules-box/$moduleId").absolutePath
-            val ok = if (isDistroShizukuRoot()) {
-                PrivilegedFileOps.copyDirToPrivileged(context, moduleDir, targetPath)
-            } else {
-                val targetDir = File(targetPath)
-                if (targetDir.exists()) targetDir.deleteRecursively()
-                targetDir.mkdirs()
-                moduleDir.copyRecursively(targetDir, overwrite = true)
-                true
-            }
-            if (!ok) Log.w(TAG, "Failed to stage module $moduleId into proot dir")
-        } catch (e: Exception) {
-            Log.w(TAG, "Failed to stage module $moduleId into proot dir", e)
-        }
-    }
-
-   // زيارة رابط badge لتسجيل زيارة للمستودع
+    // زيارة رابط badge لتسجيل زيارة للمستودع
 	private suspend fun triggerVisitorBadge(remoteModule: RemoteModule) {
 	    try {
 	        val repoPath = remoteModule.repository.removePrefix("https://github.com/")
@@ -316,21 +272,4 @@ class RepoRepository(private val context: Context) {
 	    } catch (e: Exception) {
 	    }
 	}
-	
-    private suspend fun downloadAndSaveFile(remoteModule: RemoteModule, fileName: String, targetDir: File) {
-        val bytes = downloadRawBytes(remoteModule.repository, fileName) ?: return
-        val targetFile = File(targetDir, fileName)
-        try {
-            targetFile.parentFile?.mkdirs()
-            FileOutputStream(targetFile).use { output ->
-                output.write(bytes)
-            }
-        } catch (e: Exception) {
-            // لا يعتبر خطأ فادحًا إذا لم يتم العثور على الملف (قد يكون اختياريًا).
-        }
-    }
-
-    private fun saveContentToFile(content: String, file: File) {
-        file.writeText(content)
-    }
 }

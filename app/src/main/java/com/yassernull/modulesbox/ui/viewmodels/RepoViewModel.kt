@@ -1,5 +1,6 @@
 package com.yassernull.modulesbox.ui.viewmodels
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.yassernull.modulesbox.data.model.Module
@@ -17,6 +18,10 @@ enum class DownloadState { IDLE, DOWNLOADING, COMPLETED, FAILED }
 
 // ViewModel لإدارة الوحدات المتاحة في المستودع عن بعد.
 class RepoViewModel(private val repository: RepoRepository) : ViewModel() {
+
+    private companion object {
+        const val TAG = "RepoViewModel"
+    }
 
     private val _modules = MutableStateFlow<List<RemoteModule>>(emptyList())
     val modules: StateFlow<List<RemoteModule>> = _modules.asStateFlow()
@@ -48,43 +53,58 @@ class RepoViewModel(private val repository: RepoRepository) : ViewModel() {
 
             // التعامل مع النتيجة التي قد تكون نجاحًا أو فشلًا.
             val result = repository.getRepoModules()
-            
+
             if (result.modules != null) {
-                // حالة النجاح.
+                // حالة النجاح: القائمة تظهر فوراً بدون أيقونات، والصور تكمل بعدها.
                 _modules.value = result.modules
+                _isLoading.value = false
+                repository.loadIcons(result.modules) { moduleId, localPath ->
+                    _modules.update { list ->
+                        list.map { if (it.id == moduleId) it.copy(iconPath = localPath) else it }
+                    }
+                }
             } else {
                 // حالة الفشل.
                 _modules.value = emptyList()
                 _errorMessage.value = result.errorMessage
                 _rawJsonForDebug.value = result.rawResponse
             }
-            
+
             _isLoading.value = false
         }
     }
 
-    fun downloadModule(module: RemoteModule, onComplete: () -> Unit, onNeedsInstall: (Module) -> Unit) {
-        val repoUrl = module.repository
-        if (_downloadStates.value[repoUrl] == DownloadState.DOWNLOADING) return
+    fun downloadModule(
+        module: RemoteModule,
+        onComplete: () -> Unit,
+        onNeedsInstall: (Module) -> Unit,
+        onFailed: (String) -> Unit
+    ) {
+        // Keyed by module id, not repository: two store entries may point at the same
+        // repository, and a shared key would make one row's state overwrite the other.
+        val moduleKey = module.id
+        if (_downloadStates.value[moduleKey] == DownloadState.DOWNLOADING) return
 
         viewModelScope.launch {
-            _downloadStates.update { it + (repoUrl to DownloadState.DOWNLOADING) }
+            _downloadStates.update { it + (moduleKey to DownloadState.DOWNLOADING) }
 
             when (val result = repository.downloadModule(module)) {
                 is DownloadModuleResult.Downloaded -> {
-                    _downloadStates.update { it + (repoUrl to DownloadState.COMPLETED) }
+                    _downloadStates.update { it + (moduleKey to DownloadState.COMPLETED) }
                     onComplete() // إعلام الواجهة باكتمال التنزيل لتحديث قائمة الوحدات المحلية.
                 }
 
                 is DownloadModuleResult.NeedsTerminalInstall -> {
                     // The module declares an install script: it must run in an Alpine
                     // terminal before it appears in the installed list.
-                    _downloadStates.update { it + (repoUrl to DownloadState.COMPLETED) }
+                    _downloadStates.update { it + (moduleKey to DownloadState.COMPLETED) }
                     onNeedsInstall(result.module)
                 }
 
-                DownloadModuleResult.Failed -> {
-                    _downloadStates.update { it + (repoUrl to DownloadState.FAILED) }
+                is DownloadModuleResult.Failed -> {
+                    Log.w(TAG, "downloadModule failed: ${module.id} -> ${result.reason}")
+                    _downloadStates.update { it + (moduleKey to DownloadState.FAILED) }
+                    onFailed(result.reason)
                 }
             }
         }

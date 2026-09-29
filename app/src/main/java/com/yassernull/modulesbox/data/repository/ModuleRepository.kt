@@ -13,7 +13,9 @@ import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.IOException
+import java.io.InputStream
 import java.util.Properties
+import java.util.UUID
 import java.util.zip.ZipInputStream
 
 /**
@@ -76,24 +78,59 @@ class ModuleRepository(
         }
     }
 
-    suspend fun installFromZip(zipUri: Uri, context: Context): ZipInstallResult {
+    /** Installs a module the user picked from storage. */
+    suspend fun installFromZip(zipUri: Uri): ZipInstallResult {
         return withContext(Dispatchers.IO) {
-            val tempDir = File(context.cacheDir, "unzip_temp_${System.currentTimeMillis()}").apply { mkdirs() }
             try {
-                context.contentResolver.openInputStream(zipUri)?.use { inputStream ->
-                    ZipInputStream(inputStream).use { zipInputStream ->
-                        var entry = zipInputStream.nextEntry
-                        while (entry != null) {
-                            val newFile = File(tempDir, entry.name)
-                            if (entry.isDirectory) newFile.mkdirs() else {
-                                newFile.parentFile?.mkdirs()
-                                FileOutputStream(newFile).use { fos -> zipInputStream.copyTo(fos) }
-                            }
-                            zipInputStream.closeEntry()
-                            entry = zipInputStream.nextEntry
+                val input = context.contentResolver.openInputStream(zipUri)
+                    ?: return@withContext ZipInstallResult.Failed("تعذر فتح ملف ZIP.")
+                input.use { installFromStream(it) }
+            } catch (e: Exception) {
+                ZipInstallResult.Failed(e.message ?: e.toString())
+            }
+        }
+    }
+
+    /**
+     * Installs a module from a release archive already on disk (the repository flow).
+     *
+     * Shares the whole unpack/install path with [installFromZip] on purpose: the store
+     * entry and a hand-picked archive differ only in where the bytes come from, and the
+     * two flows used to drift apart (the store one staged and marked modules differently,
+     * which is how a module could end up half-installed).
+     */
+    suspend fun installFromArchive(archive: File): ZipInstallResult {
+        return withContext(Dispatchers.IO) {
+            try {
+                FileInputStream(archive).use { installFromStream(it) }
+            } catch (e: Exception) {
+                ZipInstallResult.Failed(e.message ?: e.toString())
+            }
+        }
+    }
+
+    private suspend fun installFromStream(input: InputStream): ZipInstallResult {
+        return withContext(Dispatchers.IO) {
+            // Unique per install: two installs inside the same millisecond would otherwise
+            // share a directory and extract into each other.
+            val tempDir = File(context.cacheDir, "unzip_temp_${UUID.randomUUID()}").apply { mkdirs() }
+            try {
+                ZipInputStream(input).use { zipInputStream ->
+                    var entry = zipInputStream.nextEntry
+                    while (entry != null) {
+                        val newFile = resolveSafeEntryPath(tempDir, entry.name)
+                        if (newFile == null) {
+                            Log.w(TAG, "skipped unsafe zip entry: ${entry.name}")
+                        } else if (entry.isDirectory) {
+                            newFile.mkdirs()
+                        } else {
+                            newFile.parentFile?.mkdirs()
+                            FileOutputStream(newFile).use { fos -> zipInputStream.copyTo(fos) }
                         }
+                        zipInputStream.closeEntry()
+                        entry = zipInputStream.nextEntry
                     }
-                } ?: return@withContext ZipInstallResult.Failed("تعذر فتح ملف ZIP.")
+                }
 
                 val modulePropFile = findModuleProp(tempDir) ?: throw IOException("لم يتم العثور على module.prop.")
                 val moduleContentDir = modulePropFile.parentFile ?: throw IOException("هيكل الوحدة غير صالح.")
@@ -145,6 +182,22 @@ class ModuleRepository(
         }
     }
 
+    /**
+     * Resolves a zip entry inside [tempDir], rejecting entries that would escape it
+     * (`../../databases/...`). A module archive is remote content, so its paths are
+     * untrusted even when it comes from the project's own store.
+     */
+    private fun resolveSafeEntryPath(tempDir: File, entryName: String): File? {
+        return try {
+            val root = tempDir.canonicalFile.toPath()
+            val target = File(root.toFile(), entryName).canonicalFile.toPath()
+            if (target.startsWith(root)) target.toFile() else null
+        } catch (e: Exception) {
+            Log.w(TAG, "invalid zip entry name: $entryName", e)
+            null
+        }
+    }
+
     private fun findModuleProp(directory: File): File? {
         directory.walkTopDown().forEach { file ->
             if (file.isFile && file.name == "module.prop") return file
@@ -185,6 +238,7 @@ class ModuleRepository(
                 repository = props.getProperty("repository"),
                 html = props.getProperty("html"),
                 install = props.getProperty("install"),
+                start = props.getProperty("start"),
                 permission = props.getProperty("permission"),
                 icon = props.getProperty("icon")
             )

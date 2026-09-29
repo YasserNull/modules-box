@@ -13,6 +13,7 @@ import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.runtime.getValue
+import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.yassernull.modulesbox.R
 import com.yassernull.modulesbox.core.AppPreferences
@@ -24,6 +25,8 @@ import com.yassernull.modulesbox.ui.components.MainScreen
 import com.yassernull.modulesbox.ui.theme.Theme
 import com.yassernull.modulesbox.ui.viewmodels.*
 import com.yassernull.modulesbox.utils.ModuleInstaller
+import com.yassernull.modulesbox.utils.RuntimeTmp
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
 class MainActivity : ComponentActivity() {
@@ -49,6 +52,11 @@ class MainActivity : ComponentActivity() {
 
         val appPreferences = AppPreferences(this)
         val repoRepository = RepoRepository(this)
+
+        // Create /opt/modules-box/.tmp and drop leftovers from the previous session.
+        // Runs on the main process only — the shizuku shell service process also gets
+        // its own Application instance and would otherwise wipe a live port list.
+        lifecycleScope.launch { RuntimeTmp.prepare(this@MainActivity) }
 
         setContent {
             val themeViewModel: ThemeViewModel = viewModel(factory = ThemeViewModelFactory(appPreferences))
@@ -114,6 +122,16 @@ class MainActivity : ComponentActivity() {
         // is a viewModels() delegate, so accessing it here returns the same activity-scoped
         // instance used by composition (creating it on first access if needed).
         moduleViewModel.refreshModules()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        // Leaving the app for good: remove the guest runtime files so nothing stale
+        // survives into the next session. Rotation and plain backgrounding keep them,
+        // since the servers are still running then.
+        if (isFinishing && !isChangingConfigurations) {
+            ModuleInstaller.onAppClosed(this)
+        }
     }
 
     companion object {

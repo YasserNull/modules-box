@@ -68,6 +68,14 @@ object PortManager {
     }
 
     /**
+     * Forget every tracked port. Used when the app starts: servers are bound to the
+     * previous process, so nothing recorded before a restart is still in use.
+     */
+    fun clearUsedPorts(context: Context) {
+        saveUsedPorts(context, emptySet())
+    }
+
+    /**
      * Check if a port is available.
      */
     fun isPortAvailable(context: Context, port: Int): Boolean {

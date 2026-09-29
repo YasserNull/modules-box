@@ -12,6 +12,7 @@ data class Module(
     val repository: String?, // رابط مستودع GitHub الخاص بالوحدة.
     val html: String?,      // مسار ملف HTML داخل الوحدة (نسبي لمجلدها) يتم فتحه عند الضغط على الوحدة.
     val install: String?,   // مسار سكربت التثبيت (install_script.sh) داخل الوحدة.
+    val start: String?,     // مسار سكربت التشغيل المخصص (start.sh) الذي يختار البورت بنفسه.
     val permission: String?, // صلاحية الوحدة: default, shizuku, root.
     val icon: String?       // مسار أيقونة الوحدة (icon.png, icon.jpg, icon.svg).
 )

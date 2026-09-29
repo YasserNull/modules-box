@@ -142,5 +142,6 @@
     <string name="logs_title">سجل الوحدة</string>
     <string name="install_result_title">نتيجة التثبيت</string>
     <string name="module_start_failed">فشل في تشغيل الوحدة.</string>
+    <string name="module_started">تم تشغيل الوحدة.</string>
     <string name="module_stopped">تم إيقاف الوحدة.</string>
 </resources>
