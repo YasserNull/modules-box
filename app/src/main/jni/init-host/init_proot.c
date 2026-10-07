@@ -106,7 +106,9 @@ int init_proot(int argc, char *argv[]) {
       if (argc <= 2) {
         snprintf(shell_cmd, sizeof(shell_cmd),
                  ". /etc/profile; "
+                 "case \":$PATH:\" in *:/product/bin:*) ;; *) export PATH=\"$PATH:%s\";; esac; "
                  "cd $HOME; exec %s",
+                 ANDROID_PATH,
                  su_cmd);
       } else {
         // جمع arguments من argv[2] فما بعد
@@ -119,8 +121,32 @@ int init_proot(int argc, char *argv[]) {
 
         snprintf(shell_cmd, sizeof(shell_cmd),
                  ". /etc/profile; "
+                 "case \":$PATH:\" in *:/product/bin:*) ;; *) export PATH=\"$PATH:%s\";; esac; "
                  "cd $HOME; exec %s -c '%s'",
+                 ANDROID_PATH,
                  su_cmd, args);
+      }
+    } else {
+      if (argc <= 2) {
+        snprintf(shell_cmd, sizeof(shell_cmd),
+                 ". /etc/profile; "
+                 "case \":$PATH:\" in *:/product/bin:*) ;; *) export PATH=\"$PATH:%s\";; esac; "
+                 "cd $HOME; exec /bin/sh",
+                 ANDROID_PATH);
+      } else {
+        char args[2048] = "";
+        for (int j = 2; j < argc; j++) {
+          strcat(args, argv[j]);
+          if (j < argc - 1)
+            strcat(args, " ");
+        }
+
+        snprintf(shell_cmd, sizeof(shell_cmd),
+                 ". /etc/profile; "
+                 "case \":$PATH:\" in *:/product/bin:*) ;; *) export PATH=\"$PATH:%s\";; esac; "
+                 "cd $HOME; exec /bin/sh -c '%s'",
+                 ANDROID_PATH,
+                 args);
       }
     } 
     // proot لا يقبل -c؛ نشغّل أمر shell عبر /bin/sh داخل الـ rootfs.

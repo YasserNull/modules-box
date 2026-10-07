@@ -63,7 +63,7 @@ object Rootfs {
             val privileged = isDistroShizukuRoot()
 
             fun needsCopy(source: File, target: File): Boolean {
-                return source.exists() && (!target.exists() || target.length() != source.length())
+                return source.exists() && (!target.exists() || target.length() != source.length() || target.lastModified() < source.lastModified())
             }
 
             if (needsCopy(rishSource, rishTarget)) {

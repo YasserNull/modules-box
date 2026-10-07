@@ -66,8 +66,15 @@ object MkSession {
                 filesDir.parentFile!!.path
             }
 
+            val androidPaths = "/product/bin:/apex/com.android.runtime/bin:/apex/com.android.art/bin:/apex/com.android.virt/bin:/system_ext/bin:/system/bin:/system/xbin:/odm/bin:/vendor/bin:/vendor/xbin:/sbin"
+            val pathValue = if (isDistro) {
+                "${System.getenv("PATH")}:/sbin:$binDir:$androidPaths"
+            } else {
+                "${System.getenv("PATH")}:/sbin:$binDir"
+            }
+
             val env = mutableListOf(
-                "PATH=${System.getenv("PATH")}:/sbin:$binDir",
+                "PATH=$pathValue",
                 "HOME=/sdcard",
                 "PUBLIC_HOME=${getExternalFilesDir(null)?.absolutePath}",
                 "COLORTERM=truecolor",

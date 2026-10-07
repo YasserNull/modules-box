@@ -188,6 +188,29 @@ void fix_groups_and_permissions() {
         fclose(f);
     }
 }
+void fix_profile() {
+  char profile_d[MAX_PATH];
+  char path_script[MAX_PATH];
+
+  snprintf(profile_d, MAX_PATH, "%s/%s/etc/profile.d", DISTRIBUTION_PATH);
+  mkdir_p(profile_d);
+
+  snprintf(path_script, MAX_PATH, "%s/%s/etc/profile.d/00-android-path.sh", DISTRIBUTION_PATH);
+  FILE *f = fopen(path_script, "w");
+  if (f) {
+    fprintf(f,
+            "case \":$PATH:\" in\n"
+            "  *:/product/bin:*)\n"
+            "    ;;\n"
+            "  *)\n"
+            "    export PATH=\"$PATH:%s\"\n"
+            "    ;;\n"
+            "esac\n",
+            ANDROID_PATH);
+    fclose(f);
+  }
+}
+
 void init_distribution(const char *local, const char *distribution_dir) {
   DIR *dir = opendir(distribution_dir);
   if (!dir)
@@ -249,7 +272,8 @@ void init_distribution(const char *local, const char *distribution_dir) {
   fix_resolv_conf();
  
   fix_timezone();
- fix_groups_and_permissions();
+  fix_groups_and_permissions();
+  fix_profile();
 }
 
 int main(int argc, char *argv[]) {
