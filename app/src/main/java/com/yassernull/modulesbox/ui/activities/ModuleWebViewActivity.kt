@@ -1,6 +1,7 @@
 package com.yassernull.modulesbox.ui.activities
 
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
@@ -72,10 +73,13 @@ class ModuleWebViewActivity : ComponentActivity() {
         private const val EXTRA_TITLE = "extra_title"
 
         fun launch(context: Context, moduleDir: String, script: String, title: String) {
-            val intent = Intent(context, ModuleWebViewActivity::class.java)
-                .putExtra(EXTRA_MODULE_DIR, moduleDir)
-                .putExtra(EXTRA_SCRIPT, script)
-                .putExtra(EXTRA_TITLE, title)
+            val intent = Intent(context, ModuleWebViewActivity::class.java).apply {
+                data = android.net.Uri.parse("module://${java.io.File(moduleDir).name}")
+                putExtra(EXTRA_MODULE_DIR, moduleDir)
+                putExtra(EXTRA_SCRIPT, script)
+                putExtra(EXTRA_TITLE, title)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NEW_DOCUMENT)
+            }
             context.startActivity(intent)
         }
     }

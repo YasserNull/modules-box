@@ -46,10 +46,21 @@ class ModuleViewModel(
 
     init {
         loadModules()
+        viewModelScope.launch {
+            ModuleInstaller.runningModulesFlow.collect { ports ->
+                _runningModules.value = ports.mapValues { (id, port) ->
+                    ModuleRunningState(port, id)
+                }
+            }
+        }
     }
 
     fun refreshModules() {
         loadModules()
+        val currentPorts = ModuleInstaller.getRunningPorts()
+        _runningModules.value = currentPorts.mapValues { (id, port) ->
+            ModuleRunningState(port, id)
+        }
     }
 
     private fun loadModules() {

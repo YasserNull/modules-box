@@ -18,6 +18,9 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import java.io.File
 import java.io.FileInputStream
 import java.io.IOException
@@ -52,6 +55,17 @@ object ModuleInstaller {
 
     private val runningHandles = mutableMapOf<String, ShizukuShellHandle>()
     private val runningPorts = mutableMapOf<String, Int>()
+    private val _runningModulesFlow = MutableStateFlow<Map<String, Int>>(emptyMap())
+    val runningModulesFlow: StateFlow<Map<String, Int>> = _runningModulesFlow.asStateFlow()
+
+    fun getRunningPorts(): Map<String, Int> = synchronized(runningPorts) {
+        runningPorts.toMap()
+    }
+
+    private fun updateRunningModulesFlow() {
+        _runningModulesFlow.value = getRunningPorts()
+    }
+
     private val commandOutputs = Collections.synchronizedMap(mutableMapOf<String, String>())
     private val drainJobs = mutableMapOf<String, Job>()
     private val drainStreams = mutableMapOf<String, FileInputStream>()
@@ -148,6 +162,7 @@ object ModuleInstaller {
                 } ?: return@withContext null
 
                 runningPorts[module.id] = port
+                updateRunningModulesFlow()
                 // Republish so the next custom start script skips the port just taken.
                 // The shell user may not see app writes, so this must go through the
                 // same elevated path as the first publish.
@@ -204,6 +219,7 @@ object ModuleInstaller {
     suspend fun stopModuleServer(context: Context, module: Module) {
         tearDownServerProcess(module.id)
         val port = runningPorts.remove(module.id) ?: return
+        updateRunningModulesFlow()
         PortManager.releasePort(context, port)
         // Free the port for the next custom start script immediately.
         RuntimeTmp.publishUsedPorts(context)
@@ -436,7 +452,7 @@ object ModuleInstaller {
     }
 
     /** proot shares the host network namespace, so guest localhost == host localhost. */
-    private fun isPortOpen(port: Int): Boolean {
+    fun isPortOpen(port: Int): Boolean {
         for (host in arrayOf("127.0.0.1", "localhost")) {
             try {
                 Socket().use { socket ->

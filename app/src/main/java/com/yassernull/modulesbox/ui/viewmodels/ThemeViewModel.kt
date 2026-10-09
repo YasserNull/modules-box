@@ -4,6 +4,7 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.yassernull.modulesbox.core.AppBrowser
 import com.yassernull.modulesbox.core.AppPreferences
 import com.yassernull.modulesbox.core.AppTheme
 import kotlinx.coroutines.launch
@@ -28,6 +29,9 @@ class ThemeViewModel(private val preferences: AppPreferences) : ViewModel() {
     
     private val _isRepoGridStyleEnabled = mutableStateOf(false)
     val isRepoGridStyleEnabled: State<Boolean> = _isRepoGridStyleEnabled
+
+    private val _defaultBrowser = mutableStateOf(AppBrowser.MODULES_BOX)
+    val defaultBrowser: State<AppBrowser> = _defaultBrowser
 
     init {
         // مراقبة التغييرات في DataStore لتحديث حالة الواجهة تلقائيًا.
@@ -59,6 +63,11 @@ class ThemeViewModel(private val preferences: AppPreferences) : ViewModel() {
         viewModelScope.launch {
             preferences.isRepoGridStyleEnabled().collect { isEnabled ->
                 _isRepoGridStyleEnabled.value = isEnabled
+            }
+        }
+        viewModelScope.launch {
+            preferences.getDefaultBrowser().collect { browser ->
+                _defaultBrowser.value = browser
             }
         }
     }
@@ -97,6 +106,12 @@ class ThemeViewModel(private val preferences: AppPreferences) : ViewModel() {
     fun setRepoGridStyleEnabled(enabled: Boolean) {
         viewModelScope.launch {
             preferences.setRepoGridStyleEnabled(enabled)
+        }
+    }
+
+    fun setDefaultBrowser(browser: AppBrowser) {
+        viewModelScope.launch {
+            preferences.saveDefaultBrowser(browser)
         }
     }
 }

@@ -23,6 +23,7 @@ class AppPreferences(internal val context: Context) {
         private val HUE_SHIFT_KEY = floatPreferencesKey("hue_shift_key")
         private val SATURATION_SHIFT_KEY = floatPreferencesKey("saturation_shift_key")
         private val REPO_GRID_STYLE_KEY = booleanPreferencesKey("repo_grid_style_key")
+        private val DEFAULT_BROWSER_KEY = stringPreferencesKey("default_browser_key")
     }
 
     suspend fun saveLanguage(language: String) {
@@ -106,5 +107,21 @@ class AppPreferences(internal val context: Context) {
         return context.dataStore.data.map { preferences ->
             preferences[REPO_GRID_STYLE_KEY] ?: false
         }
+    }
+
+    suspend fun saveDefaultBrowser(browser: AppBrowser) {
+        context.dataStore.edit { preferences ->
+            preferences[DEFAULT_BROWSER_KEY] = browser.name
+        }
+    }
+
+    fun getDefaultBrowser(): Flow<AppBrowser> {
+        return context.dataStore.data.map { preferences ->
+            AppBrowser.fromString(preferences[DEFAULT_BROWSER_KEY])
+        }
+    }
+
+    suspend fun getDefaultBrowserSync(): AppBrowser {
+        return getDefaultBrowser().first()
     }
 }

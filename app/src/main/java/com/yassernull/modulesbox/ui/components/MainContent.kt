@@ -24,6 +24,8 @@ import androidx.compose.ui.unit.dp
 import com.google.accompanist.swiperefresh.SwipeRefresh
 import com.google.accompanist.swiperefresh.rememberSwipeRefreshState
 import com.yassernull.modulesbox.R
+import com.yassernull.modulesbox.core.AppBrowser
+import com.yassernull.modulesbox.core.AppPreferences
 import com.yassernull.modulesbox.data.model.Module
 import com.yassernull.modulesbox.ui.activities.ModuleWebViewActivity
 import com.yassernull.modulesbox.ui.dialogs.ModuleLogDialog
@@ -91,6 +93,8 @@ fun MainContent(
             }
         } else {
             val context = LocalContext.current
+            val preferences = remember { AppPreferences(context) }
+            val defaultBrowser by preferences.getDefaultBrowser().collectAsState(initial = AppBrowser.MODULES_BOX)
 
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
@@ -108,7 +112,7 @@ fun MainContent(
                         isStarting = isStarting,
                         port = port,
                         onModuleClick = {
-                            openModule(context, module, port)
+                            openModule(context, module, port, defaultBrowser)
                         },
                         onOpenInBrowserClick = {
                             openInBrowser(context, module, port)
@@ -143,14 +147,19 @@ fun MainContent(
 private fun openModule(
     context: android.content.Context,
     module: Module,
-    currentPort: Int?
+    currentPort: Int?,
+    defaultBrowser: AppBrowser
 ) {
     // Node modules have no html file — they serve from the server root (/).
     val url = moduleUrl(module, currentPort)
     if (url != null) {
-        ModuleWebViewActivity.launch(context, module.path, url, module.name)
+        if (defaultBrowser == AppBrowser.DEFAULT_BROWSER) {
+            openInBrowser(context, module, currentPort)
+        } else {
+            ModuleWebViewActivity.launch(context, module.path, url, module.name)
+        }
     } else {
-        Toast.makeText(context, "الوحدة غير قيد التشغيل", android.widget.Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, context.getString(R.string.module_not_running), android.widget.Toast.LENGTH_SHORT).show()
     }
 }
 
@@ -168,10 +177,10 @@ private fun openInBrowser(
             )
             context.startActivity(intent)
         } catch (e: Exception) {
-            Toast.makeText(context, "الوحدة غير قيد التشغيل", android.widget.Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, context.getString(R.string.module_not_running), android.widget.Toast.LENGTH_SHORT).show()
         }
     } else {
-        Toast.makeText(context, "الوحدة غير قيد التشغيل", android.widget.Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, context.getString(R.string.module_not_running), android.widget.Toast.LENGTH_SHORT).show()
     }
 }
 

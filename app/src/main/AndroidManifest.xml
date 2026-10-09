@@ -65,6 +65,8 @@
             android:name=".ui.activities.ModuleWebViewActivity"
             android:theme="@style/app_theme"
             android:exported="false"
+            android:taskAffinity="${applicationId}.modulewebview"
+            android:documentLaunchMode="intoExisting"
             android:configChanges="locale|layoutDirection|fontScale|screenSize|smallestScreenSize|screenLayout|orientation" />
         <activity
             android:name=".ui.activities.TerminalActivity"

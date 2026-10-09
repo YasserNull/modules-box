@@ -32,6 +32,7 @@ import com.yassernull.modulesbox.core.preferences.terminal.isDistroShizukuRoot
 import com.yassernull.modulesbox.core.preferences.terminal.setTerminalDistributionPermission
 import com.yassernull.modulesbox.ui.activities.terminal.DistroPermission
 import com.yassernull.modulesbox.ui.activities.terminal.Rootfs
+import com.yassernull.modulesbox.ui.dialogs.DefaultBrowserDialog
 import com.yassernull.modulesbox.ui.dialogs.LanguagesDialog
 import com.yassernull.modulesbox.ui.dialogs.RestartDialog
 import com.yassernull.modulesbox.ui.theme.*
@@ -82,6 +83,7 @@ fun SettingsContent(modifier: Modifier = Modifier, onLanguageChangeConfirmed: ()
 
     var showRestartDialog by remember { mutableStateOf(false) }
     var showLanguageDialog by remember { mutableStateOf(false) }
+    var showBrowserDialog by remember { mutableStateOf(false) }
     val currentAppLanguage by LocaleManager.currentAppLanguageState.collectAsState()
 
     Column(
@@ -101,6 +103,11 @@ fun SettingsContent(modifier: Modifier = Modifier, onLanguageChangeConfirmed: ()
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
 
+        SectionTitle(stringResource(R.string.default_browser))
+        BrowserSettingsSection(themeViewModel = themeViewModel, onClick = { showBrowserDialog = true })
+
+        HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+
         SectionTitle(stringResource(R.string.language))
         LanguageSettingsSection(onClick = { showLanguageDialog = true })
 
@@ -115,6 +122,16 @@ fun SettingsContent(modifier: Modifier = Modifier, onLanguageChangeConfirmed: ()
 
         SectionTitle(stringResource(R.string.community_and_contribution))
         CommunityLinksSection()
+    }
+
+    if (showBrowserDialog) {
+        DefaultBrowserDialog(
+            currentBrowser = themeViewModel.defaultBrowser.value,
+            onDismissRequest = { showBrowserDialog = false },
+            onBrowserSelected = { selectedBrowser ->
+                themeViewModel.setDefaultBrowser(selectedBrowser)
+            }
+        )
     }
 
     if (showLanguageDialog) {
@@ -238,6 +255,26 @@ fun RepoSettingsSection(themeViewModel: ThemeViewModel) {
     ) {
         Switch(checked = isGridStyle, onCheckedChange = null)
     }
+}
+
+// قسم إعدادات المتصفح الافتراضي.
+@Composable
+fun BrowserSettingsSection(themeViewModel: ThemeViewModel, onClick: () -> Unit) {
+    val currentBrowser by themeViewModel.defaultBrowser
+    val currentBrowserName = when (currentBrowser) {
+        AppBrowser.MODULES_BOX -> stringResource(R.string.browser_modules_box)
+        AppBrowser.DEFAULT_BROWSER -> stringResource(R.string.browser_default)
+    }
+
+    ListItem(
+        headlineContent = { Text(stringResource(R.string.default_browser)) },
+        supportingContent = { Text(currentBrowserName) },
+        leadingContent = { Icon(imageVector = Icons.Default.OpenInBrowser, contentDescription = null, modifier = Modifier.size(24.dp)) },
+        modifier = Modifier
+            .padding(horizontal = 8.dp)
+            .clickable(onClick = onClick),
+        colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surface)
+    )
 }
 
 // قسم إعدادات اللغة.

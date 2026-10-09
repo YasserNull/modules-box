@@ -13,12 +13,18 @@ import android.graphics.Paint
 import android.graphics.RectF
 import android.net.Uri
 import android.widget.RemoteViews
+import android.widget.Toast
 import com.yassernull.modulesbox.R
 import com.yassernull.modulesbox.data.repository.ModuleRepository
+import com.yassernull.modulesbox.core.AppBrowser
+import com.yassernull.modulesbox.core.AppPreferences
+import com.yassernull.modulesbox.ui.activities.ModuleWebViewActivity
 import com.yassernull.modulesbox.utils.ModuleInstaller
+import com.yassernull.modulesbox.utils.RuntimeTmp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 
 class ModuleWidgetProvider : AppWidgetProvider() {
@@ -37,6 +43,7 @@ class ModuleWidgetProvider : AppWidgetProvider() {
             val pendingResult = goAsync()
             CoroutineScope(Dispatchers.IO).launch {
                 try {
+                    RuntimeTmp.prepare(context)
                     val repository = ModuleRepository(context)
                     val modules = repository.getModules()
                     val module = modules.find { it.id == moduleId } ?: return@launch
@@ -49,15 +56,32 @@ class ModuleWidgetProvider : AppWidgetProvider() {
                     }
                     
                     if (port != null) {
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(context, context.getString(R.string.module_started), Toast.LENGTH_SHORT).show()
+                        }
                         if (isColdStart) {
-                            kotlinx.coroutines.delay(1000)
+                            var attempts = 0
+                            while (attempts < 15 && !ModuleInstaller.isPortOpen(port)) {
+                                kotlinx.coroutines.delay(200)
+                                attempts++
+                            }
+                            kotlinx.coroutines.delay(300)
                         }
                         val page = module.html?.takeIf { it.isNotBlank() }?.let { "/$it" } ?: "/"
                         val siteUrl = "http://localhost:$port$page"
-                        val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(siteUrl)).apply {
-                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        val defaultBrowser = AppPreferences(context).getDefaultBrowserSync()
+                        if (defaultBrowser == AppBrowser.MODULES_BOX) {
+                            ModuleWebViewActivity.launch(context, module.path, siteUrl, module.name)
+                        } else {
+                            val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(siteUrl)).apply {
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                            context.startActivity(browserIntent)
                         }
-                        context.startActivity(browserIntent)
+                    } else {
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(context, context.getString(R.string.module_start_failed), Toast.LENGTH_SHORT).show()
+                        }
                     }
                 } finally {
                     pendingResult.finish()
@@ -86,7 +110,23 @@ class ModuleWidgetProvider : AppWidgetProvider() {
             if (moduleIconPath != null && modulePath != null) {
                 val iconFile = File(modulePath, moduleIconPath)
                 if (iconFile.exists()) {
-                    bitmap = BitmapFactory.decodeFile(iconFile.absolutePath)
+                    val options = BitmapFactory.Options()
+                    options.inJustDecodeBounds = true
+                    BitmapFactory.decodeFile(iconFile.absolutePath, options)
+                    var inSampleSize = 1
+                    val target = 192
+                    if (options.outHeight > target || options.outWidth > target) {
+                        val halfHeight = options.outHeight / 2
+                        val halfWidth = options.outWidth / 2
+                        while (halfHeight / inSampleSize >= target && halfWidth / inSampleSize >= target) {
+                            inSampleSize *= 2
+                        }
+                    }
+                    options.inJustDecodeBounds = false
+                    options.inSampleSize = inSampleSize
+                    // prevent hardware bitmap configuration which is buggy with widgets
+                    options.inPreferredConfig = Bitmap.Config.ARGB_8888 
+                    bitmap = BitmapFactory.decodeFile(iconFile.absolutePath, options)
                 }
             }
 
@@ -105,6 +145,7 @@ class ModuleWidgetProvider : AppWidgetProvider() {
 
             val intent = Intent(context, ModuleWidgetProvider::class.java).apply {
                 action = ACTION_START_MODULE
+                data = android.net.Uri.parse("widget://$appWidgetId")
                 putExtra(EXTRA_MODULE_ID, moduleId)
             }
             val pendingIntent = PendingIntent.getBroadcast(
@@ -121,16 +162,32 @@ class ModuleWidgetProvider : AppWidgetProvider() {
         }
 
         private fun roundBitmap(bitmap: Bitmap): Bitmap {
+            val targetSize = 192
             val size = Math.min(bitmap.width, bitmap.height)
-            val output = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
-            val canvas = Canvas(output)
-            val paint = Paint().apply {
-                isAntiAlias = true
-                shader = android.graphics.BitmapShader(bitmap, android.graphics.Shader.TileMode.CLAMP, android.graphics.Shader.TileMode.CLAMP)
+            val scale = if (size > targetSize) targetSize.toFloat() / size else 1f
+            val scaledSize = (size * scale).toInt()
+            
+            val scaledBitmap = if (scale < 1f) {
+                Bitmap.createScaledBitmap(bitmap, (bitmap.width * scale).toInt(), (bitmap.height * scale).toInt(), true)
+            } else {
+                bitmap
             }
-            val rect = RectF(0f, 0f, size.toFloat(), size.toFloat())
-            val cornerRadius = size / 6f
+            
+            val output = Bitmap.createBitmap(scaledSize, scaledSize, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(output)
+            val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+            val rect = RectF(0f, 0f, scaledSize.toFloat(), scaledSize.toFloat())
+            val cornerRadius = scaledSize / 6f
+            
+            // Draw rounded rect mask
             canvas.drawRoundRect(rect, cornerRadius, cornerRadius, paint)
+            
+            // Draw bitmap masked
+            paint.xfermode = android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.SRC_IN)
+            val dx = (scaledSize - scaledBitmap.width) / 2f
+            val dy = (scaledSize - scaledBitmap.height) / 2f
+            canvas.drawBitmap(scaledBitmap, dx, dy, paint)
+            
             return output
         }
 

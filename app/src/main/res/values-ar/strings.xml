@@ -6,4 +6,9 @@
     <string name="select_module_for_widget">اختر الوحدة</string>
     <string name="no_modules_installed">لا توجد وحدات مثبتة</string>
     <string name="show_widget_name">إظهار اسم الوحدة</string>
+    <string name="default_browser">المتصفح الافتراضي</string>
+    <string name="select_default_browser">اختر المتصفح الافتراضي</string>
+    <string name="browser_modules_box">Modules Box</string>
+    <string name="browser_default">المتصفح الافتراضي</string>
+    <string name="module_not_running">الوحدة غير قيد التشغيل</string>
 </resources>
