@@ -91,6 +91,11 @@ fun SettingsContent(modifier: Modifier = Modifier, onLanguageChangeConfirmed: ()
         // تم استبدال Divider بـ HorizontalDivider
         HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
 
+        SectionTitle(stringResource(R.string.store_style))
+        RepoSettingsSection(themeViewModel)
+
+        HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+
         SectionTitle(stringResource(R.string.language))
         LanguageSettingsSection(onClick = { showLanguageDialog = true })
 
@@ -212,6 +217,21 @@ fun ThemeSettingsSection(themeViewModel: ThemeViewModel) {
                 onSaturationShiftChanged = { newShift -> themeViewModel.setSaturationShift(newShift) }
             )
         }
+    }
+}
+
+// قسم إعدادات المتجر
+@Composable
+fun RepoSettingsSection(themeViewModel: ThemeViewModel) {
+    val isGridStyle by themeViewModel.isRepoGridStyleEnabled
+
+    SettingItemRow(
+        text = stringResource(if (isGridStyle) R.string.store_style_grid else R.string.store_style_list),
+        selected = isGridStyle,
+        onClick = { themeViewModel.setRepoGridStyleEnabled(!isGridStyle) },
+        icon = if (isGridStyle) Icons.Default.GridView else Icons.Default.ViewList
+    ) {
+        Switch(checked = isGridStyle, onCheckedChange = null)
     }
 }
 

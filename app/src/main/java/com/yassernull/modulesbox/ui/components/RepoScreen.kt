@@ -1,5 +1,12 @@
 package com.yassernull.modulesbox.ui.components
 
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items as gridItems
+import androidx.compose.foundation.lazy.grid.itemsIndexed as gridItemsIndexed
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import com.yassernull.modulesbox.core.AppPreferences
+
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -43,6 +50,8 @@ fun RepoScreen(
     val rawJsonForDebug by viewModel.rawJsonForDebug.collectAsState()
 
     val context = LocalContext.current
+    val appPreferences = remember { AppPreferences(context) }
+    val isGridStyle by appPreferences.isRepoGridStyleEnabled().collectAsState(initial = false)
 
     val installedModuleIds = remember(installedModules) { installedModules.map { it.id }.toSet() }
 
@@ -106,23 +115,71 @@ fun RepoScreen(
             }
             // الحالة الافتراضية: عرض قائمة الوحدات.
             else -> {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(vertical = 4.dp)
-                ) {
-                    items(filteredModulesToShow, key = { it.id }) { module ->
-                        RepoItem(
-                            module = module,
-                            downloadState = downloadStates[module.id] ?: DownloadState.IDLE,
-                            onButtonClick = { viewModel.downloadModule(module, onDownloadComplete, onNeedsInstall) { reason ->
-                                Toast.makeText(context, context.getString(R.string.install_failed), Toast.LENGTH_LONG).show()
-                            } },
-                            onModuleClick = {
-                                module.readmeUrl?.let { url ->
-                                    ModuleWebViewActivity.launch(context, "", url, module.name)
+                if (isGridStyle) {
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(6),
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(4.dp)
+                    ) {
+                        gridItemsIndexed(
+                            items = filteredModulesToShow,
+                            key = { _, module -> module.id },
+                            span = { index, _ ->
+                                val spanCount = when (index % 10) {
+                                    0 -> 6
+                                    1, 2 -> 3
+                                    3, 4 -> if (index % 10 == 3) 4 else 2
+                                    5, 6, 7 -> 2
+                                    8, 9 -> if (index % 10 == 8) 2 else 4
+                                    else -> 3
                                 }
+                                GridItemSpan(spanCount)
                             }
-                        )
+                        ) { index, module ->
+                            val spanCount = when (index % 10) {
+                                0 -> 6
+                                1, 2 -> 3
+                                3, 4 -> if (index % 10 == 3) 4 else 2
+                                5, 6, 7 -> 2
+                                8, 9 -> if (index % 10 == 8) 2 else 4
+                                else -> 3
+                            }
+                            RepoItem(
+                                module = module,
+                                downloadState = downloadStates[module.id] ?: DownloadState.IDLE,
+                                onButtonClick = { viewModel.downloadModule(module, onDownloadComplete, onNeedsInstall) { reason ->
+                                    Toast.makeText(context, context.getString(R.string.install_failed), Toast.LENGTH_LONG).show()
+                                } },
+                                onModuleClick = {
+                                    module.readmeUrl?.let { url ->
+                                        ModuleWebViewActivity.launch(context, "", url, module.name)
+                                    }
+                                },
+                                isGrid = true,
+                                spanCount = spanCount
+                            )
+                        }
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(vertical = 4.dp)
+                    ) {
+                        items(filteredModulesToShow, key = { it.id }) { module ->
+                            RepoItem(
+                                module = module,
+                                downloadState = downloadStates[module.id] ?: DownloadState.IDLE,
+                                onButtonClick = { viewModel.downloadModule(module, onDownloadComplete, onNeedsInstall) { reason ->
+                                    Toast.makeText(context, context.getString(R.string.install_failed), Toast.LENGTH_LONG).show()
+                                } },
+                                onModuleClick = {
+                                    module.readmeUrl?.let { url ->
+                                        ModuleWebViewActivity.launch(context, "", url, module.name)
+                                    }
+                                },
+                                isGrid = false
+                            )
+                        }
                     }
                 }
             }

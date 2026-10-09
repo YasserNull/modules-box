@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="store_style">Store layout style</string>
+    <string name="store_style_list">List view</string>
+    <string name="store_style_grid">Grid view</string>
+</resources>

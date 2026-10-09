@@ -22,6 +22,7 @@ class AppPreferences(internal val context: Context) {
         private val MATERIAL_YOU_KEY = booleanPreferencesKey("material_you_key")
         private val HUE_SHIFT_KEY = floatPreferencesKey("hue_shift_key")
         private val SATURATION_SHIFT_KEY = floatPreferencesKey("saturation_shift_key")
+        private val REPO_GRID_STYLE_KEY = booleanPreferencesKey("repo_grid_style_key")
     }
 
     suspend fun saveLanguage(language: String) {
@@ -92,6 +93,18 @@ class AppPreferences(internal val context: Context) {
     fun getSaturationShift(): Flow<Float> {
         return context.dataStore.data.map { preferences ->
             preferences[SATURATION_SHIFT_KEY] ?: 0f
+        }
+    }
+
+    suspend fun setRepoGridStyleEnabled(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[REPO_GRID_STYLE_KEY] = enabled
+        }
+    }
+
+    fun isRepoGridStyleEnabled(): Flow<Boolean> {
+        return context.dataStore.data.map { preferences ->
+            preferences[REPO_GRID_STYLE_KEY] ?: false
         }
     }
 }

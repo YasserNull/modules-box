@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="store_style">شكل عرض المتجر</string>
+    <string name="store_style_list">عرض كقائمة</string>
+    <string name="store_style_grid">عرض كشبكة</string>
+</resources>

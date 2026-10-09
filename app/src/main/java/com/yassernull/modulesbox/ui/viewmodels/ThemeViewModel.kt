@@ -26,6 +26,9 @@ class ThemeViewModel(private val preferences: AppPreferences) : ViewModel() {
     private val _saturationShift = mutableStateOf(0f)
     val saturationShift: State<Float> = _saturationShift
     
+    private val _isRepoGridStyleEnabled = mutableStateOf(false)
+    val isRepoGridStyleEnabled: State<Boolean> = _isRepoGridStyleEnabled
+
     init {
         // مراقبة التغييرات في DataStore لتحديث حالة الواجهة تلقائيًا.
         viewModelScope.launch {
@@ -51,6 +54,11 @@ class ThemeViewModel(private val preferences: AppPreferences) : ViewModel() {
         viewModelScope.launch {
             preferences.getSaturationShift().collect { shift ->
                 _saturationShift.value = shift
+            }
+        }
+        viewModelScope.launch {
+            preferences.isRepoGridStyleEnabled().collect { isEnabled ->
+                _isRepoGridStyleEnabled.value = isEnabled
             }
         }
     }
@@ -83,6 +91,12 @@ class ThemeViewModel(private val preferences: AppPreferences) : ViewModel() {
     fun setSaturationShift(shift: Float) {
         viewModelScope.launch {
             preferences.saveSaturationShift(shift)
+        }
+    }
+    
+    fun setRepoGridStyleEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            preferences.setRepoGridStyleEnabled(enabled)
         }
     }
 }

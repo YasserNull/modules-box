@@ -73,7 +73,7 @@ fun ModuleItem(
                     module = module,
                     modifier = Modifier
                         .size(48.dp)
-                        .clip(RectangleShape)
+                        .clip(MaterialTheme.shapes.medium)
                 )
 
                 Spacer(modifier = Modifier.width(12.dp))
@@ -227,7 +227,7 @@ private fun ModuleIcon(
         modifier = modifier
             .background(
                 MaterialTheme.colorScheme.primaryContainer,
-                RectangleShape
+                MaterialTheme.shapes.medium
             ),
         contentAlignment = Alignment.Center
     ) {

@@ -37,121 +37,199 @@ fun RepoItem(
     module: RemoteModule,
     downloadState: DownloadState,
     onButtonClick: () -> Unit,
-    onModuleClick: () -> Unit
+    onModuleClick: () -> Unit,
+    isGrid: Boolean = false,
+    spanCount: Int = 3
 ) {
     val repositoryUrlNotFoundString = stringResource(R.string.repository_url_not_found)
     val context = LocalContext.current
 
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 4.dp)
-                .clickable { onModuleClick() },
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                contentColor = MaterialTheme.colorScheme.onSurface
-            )
-        ) {
-            Row(
+        if (isGrid) {
+            Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 16.dp, bottom = 8.dp, start = 16.dp, end = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                RepoIcon(
-                    module = module,
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(RectangleShape)
+                    .then(if (spanCount < 6) Modifier.height(130.dp) else Modifier)
+                    .padding(4.dp)
+                    .clickable { onButtonClick() },
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    contentColor = MaterialTheme.colorScheme.onSurface
                 )
-
-                Spacer(modifier = Modifier.width(12.dp))
-
-                Column(
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(
-                        text = module.name,
-                        style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.clickable {
-                            val url = module.repository
-                            if (url.isBlank()) {
-                                Toast.makeText(context, repositoryUrlNotFoundString, Toast.LENGTH_SHORT).show()
-                            } else if (url.startsWith("http", ignoreCase = true)) {
-                                try {
-                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-                                    context.startActivity(intent)
-                                } catch (e: Exception) {
-                                    Toast.makeText(context, context.getString(R.string.error_opening_link, url), Toast.LENGTH_SHORT).show()
-                                }
-                            } else {
-                                Toast.makeText(context, context.getString(R.string.invalid_repository_url), Toast.LENGTH_SHORT).show()
+            ) {
+                if (spanCount == 6) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RepoIcon(
+                            module = module,
+                            modifier = Modifier
+                                .size(64.dp)
+                                .clip(MaterialTheme.shapes.medium)
+                        )
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = module.name,
+                                style = MaterialTheme.typography.titleMedium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            if (module.description.isNotBlank()) {
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = module.description,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
                             }
                         }
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = module.author,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    if (module.description.isNotBlank()) {
+                    }
+                } else {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(12.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        RepoIcon(
+                            module = module,
+                            modifier = Modifier
+                                .size(if (spanCount == 4) 64.dp else 48.dp)
+                                .clip(MaterialTheme.shapes.medium)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = module.description,
+                            text = module.name,
+                            style = if (spanCount == 4) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleSmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
+        } else {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp, vertical = 4.dp)
+                    .clickable { onModuleClick() },
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    contentColor = MaterialTheme.colorScheme.onSurface
+                )
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 16.dp, bottom = 8.dp, start = 16.dp, end = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RepoIcon(
+                        module = module,
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(MaterialTheme.shapes.medium)
+                    )
+
+                    Spacer(modifier = Modifier.width(12.dp))
+
+                    Column(
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(
+                            text = module.name,
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.clickable {
+                                val url = module.repository
+                                if (url.isBlank()) {
+                                    Toast.makeText(context, repositoryUrlNotFoundString, Toast.LENGTH_SHORT).show()
+                                } else if (url.startsWith("http", ignoreCase = true)) {
+                                    try {
+                                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                                        context.startActivity(intent)
+                                    } catch (e: Exception) {
+                                        Toast.makeText(context, context.getString(R.string.error_opening_link, url), Toast.LENGTH_SHORT).show()
+                                    }
+                                } else {
+                                    Toast.makeText(context, context.getString(R.string.invalid_repository_url), Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = module.author,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        if (module.description.isNotBlank()) {
+                            Text(
+                                text = module.description,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = module.version,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    Spacer(modifier = Modifier.height(4.dp))
-                    // The index carries no download count, so the row shows the version the
-                    // download button will actually fetch.
-                    Text(
-                        text = module.version,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
 
-                Spacer(modifier = Modifier.width(8.dp))
-
-                when (downloadState) {
-                    DownloadState.DOWNLOADING -> {
-                        SizedCircularProgressIndicator(
-                            modifier = Modifier.padding(end = 16.dp),
-                            size = 24.dp
-                        )
-                    }
-                    DownloadState.FAILED -> {
-                        IconButton(
-                            onClick = onButtonClick,
-                            modifier = Modifier.padding(end = 8.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.Refresh,
-                                contentDescription = stringResource(R.string.retry),
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                    }
-                    else -> {
-                        IconButton(
-                            onClick = onButtonClick,
-                            modifier = Modifier.padding(end = 8.dp),
-                            enabled = downloadState != DownloadState.DOWNLOADING
-                        ) {
-                            Icon(
-                                Icons.Default.Download,
-                                contentDescription = stringResource(R.string.download),
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    DownloadButton(downloadState, onButtonClick)
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DownloadButton(downloadState: DownloadState, onButtonClick: () -> Unit) {
+    when (downloadState) {
+        DownloadState.DOWNLOADING -> {
+            SizedCircularProgressIndicator(
+                modifier = Modifier.padding(end = 16.dp),
+                size = 24.dp
+            )
+        }
+        DownloadState.FAILED -> {
+            IconButton(
+                onClick = onButtonClick,
+                modifier = Modifier.padding(end = 8.dp)
+            ) {
+                Icon(
+                    Icons.Default.Refresh,
+                    contentDescription = stringResource(R.string.retry),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+        else -> {
+            IconButton(
+                onClick = onButtonClick,
+                modifier = Modifier.padding(end = 8.dp),
+                enabled = downloadState != DownloadState.DOWNLOADING
+            ) {
+                Icon(
+                    Icons.Default.Download,
+                    contentDescription = stringResource(R.string.download),
+                    tint = MaterialTheme.colorScheme.primary
+                )
             }
         }
     }
@@ -180,7 +258,7 @@ private fun RepoIcon(
         modifier = modifier
             .background(
                 MaterialTheme.colorScheme.primaryContainer,
-                RectangleShape
+                MaterialTheme.shapes.medium
             ),
         contentAlignment = Alignment.Center
     ) {
