@@ -3,4 +3,7 @@
     <string name="store_style">Store layout style</string>
     <string name="store_style_list">List view</string>
     <string name="store_style_grid">Grid view</string>
+    <string name="select_module_for_widget">Select Module</string>
+    <string name="no_modules_installed">No modules installed</string>
+    <string name="show_widget_name">Show module name</string>
 </resources>

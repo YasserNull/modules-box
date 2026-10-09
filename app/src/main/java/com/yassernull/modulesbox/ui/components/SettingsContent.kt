@@ -44,6 +44,8 @@ import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 import java.io.File
 
+import androidx.compose.ui.graphics.Color
+
 // شاشة الإعدادات الكاملة مع شريط الأدوات.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -54,12 +56,15 @@ fun SettingsScreen(onBackPressed: () -> Unit, onLanguageChangeConfirmed: () -> U
                 title = { Text(stringResource(R.string.settings)) },
                 navigationIcon = { IconButton(onClick = onBackPressed) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back)) } },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
+                    containerColor = Color.Transparent,
+                    scrolledContainerColor = Color.Transparent,
                     titleContentColor = MaterialTheme.colorScheme.onBackground,
                     navigationIconContentColor = MaterialTheme.colorScheme.onBackground
                 )
             )
-        }
+        },
+        containerColor = MaterialTheme.colorScheme.background
+
     ) { paddingValues ->
         SettingsContent(
             modifier = Modifier.padding(paddingValues),

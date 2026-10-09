@@ -3,4 +3,7 @@
     <string name="store_style">شكل عرض المتجر</string>
     <string name="store_style_list">عرض كقائمة</string>
     <string name="store_style_grid">عرض كشبكة</string>
+    <string name="select_module_for_widget">اختر الوحدة</string>
+    <string name="no_modules_installed">لا توجد وحدات مثبتة</string>
+    <string name="show_widget_name">إظهار اسم الوحدة</string>
 </resources>

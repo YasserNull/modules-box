@@ -16,6 +16,8 @@ import com.yassernull.modulesbox.R
 import com.yassernull.modulesbox.core.AppTheme
 import com.yassernull.modulesbox.ui.theme.Theme
 
+import androidx.compose.ui.graphics.Color
+
 // شريط الأدوات العلوي الرئيسي للتطبيق.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -44,7 +46,8 @@ fun AppToolbar(
             )
         },
         colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = MaterialTheme.colorScheme.background,
+            containerColor = Color.Transparent,
+            scrolledContainerColor = Color.Transparent,
             titleContentColor = MaterialTheme.colorScheme.onBackground,
             actionIconContentColor = MaterialTheme.colorScheme.onBackground
         )
