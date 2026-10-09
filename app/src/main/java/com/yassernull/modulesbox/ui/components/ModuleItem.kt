@@ -81,22 +81,16 @@ fun ModuleItem(
                 Column(
                     modifier = Modifier.weight(1f)
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = module.name,
-                            style = MaterialTheme.typography.titleMedium,
-                            modifier = Modifier.weight(1f, fill = false)
-                        )
-
-                        module.permission?.let { permission ->
-                            if (permission != "default") {
-                                Spacer(modifier = Modifier.width(8.dp))
-                                PermissionBadge(permission = permission)
-                            }
+                    module.permission?.let { permission ->
+                        if (permission != "default") {
+                            PermissionBadge(permission = permission)
+                            Spacer(modifier = Modifier.height(2.dp))
                         }
                     }
+                    Text(
+                        text = module.name,
+                        style = MaterialTheme.typography.titleMedium
+                    )
 
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
@@ -118,14 +112,6 @@ fun ModuleItem(
                         }
                     }
 
-                    if (isRunning && port != null) {
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = stringResource(R.string.module_port, port),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
 
                     if (siteUrl != null) {
                         Spacer(modifier = Modifier.height(2.dp))
