@@ -231,4 +231,5 @@ dependencies {
     implementation("io.coil-kt:coil-svg:2.5.0")
     implementation(project(":terminal-view"))
     implementation(project(":terminal-emulator"))
+    implementation("androidx.core:core-splashscreen:1.0.1")
 }

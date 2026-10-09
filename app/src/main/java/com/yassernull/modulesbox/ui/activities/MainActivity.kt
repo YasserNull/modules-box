@@ -26,6 +26,7 @@ import com.yassernull.modulesbox.ui.theme.Theme
 import com.yassernull.modulesbox.ui.viewmodels.*
 import com.yassernull.modulesbox.utils.ModuleInstaller
 import com.yassernull.modulesbox.utils.RuntimeTmp
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
@@ -48,6 +49,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        installSplashScreen()
         super.onCreate(savedInstanceState)
 
         val appPreferences = AppPreferences(this)
