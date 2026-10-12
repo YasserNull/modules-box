@@ -75,7 +75,7 @@ class ModuleWidgetConfigureActivity : ComponentActivity() {
     }
 
     private fun saveWidgetConfig(module: Module, showName: Boolean) {
-        val prefs = getSharedPreferences("widget_prefs", Context.MODE_PRIVATE)
+        val prefs = getSharedPreferences(ModuleWidgetProvider.WIDGET_PREFS, Context.MODE_PRIVATE)
         prefs.edit()
             .putString("widget_${appWidgetId}_id", module.id)
             .putString("widget_${appWidgetId}_name", module.name)

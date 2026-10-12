@@ -25,4 +25,6 @@
     <string name="icon">الأيقونة</string>
     <string name="description">الوصف</string>
     <string name="module_options">خيارات الوحدة</string>
+    <string name="add_widget_unsupported_title">لا يمكن إضافة الويدجت تلقائيًا</string>
+    <string name="add_widget_unsupported_message">لا يدعم مشغّل الشاشة لديك إضافة الويدجيتات من داخل التطبيق. لإضافته يدويًا، اضغط مطولاً على مساحة فارغة في الشاشة الرئيسية، ثم اختر الويدجيتات، ثم اختر Modules Box.</string>
 </resources>

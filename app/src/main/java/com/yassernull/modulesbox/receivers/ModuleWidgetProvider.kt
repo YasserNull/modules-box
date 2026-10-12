@@ -25,15 +25,51 @@ class ModuleWidgetProvider : AppWidgetProvider() {
 
     companion object {
 
-        fun updateAppWidget(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int) {
-            val prefs = context.getSharedPreferences("widget_prefs", Context.MODE_PRIVATE)
-            val moduleId = prefs.getString("widget_${appWidgetId}_id", null)
-            val moduleName = prefs.getString("widget_${appWidgetId}_name", "") ?: ""
-            val moduleIconPath = prefs.getString("widget_${appWidgetId}_icon", null)
-            val modulePath = prefs.getString("widget_${appWidgetId}_path", null)
-            val showName = prefs.getBoolean("widget_${appWidgetId}_show_name", false)
+        // SharedPreferences holding the widget config, keyed per widget id.
+        const val WIDGET_PREFS = "widget_prefs"
 
-            if (moduleId == null) return
+        // Module picked in the app but not yet claimed by a widget id. Written right
+        // before requestPinAppWidget() and consumed on the first update of the pinned
+        // widget (see updateAppWidget).
+        const val PENDING_ID = "pending_widget_id"
+        const val PENDING_NAME = "pending_widget_name"
+        const val PENDING_ICON = "pending_widget_icon"
+        const val PENDING_PATH = "pending_widget_path"
+        const val PENDING_SHOW_NAME = "pending_widget_show_name"
+
+        fun updateAppWidget(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int) {
+            val prefs = context.getSharedPreferences(WIDGET_PREFS, Context.MODE_PRIVATE)
+            var moduleId = prefs.getString("widget_${appWidgetId}_id", null)
+            var moduleName = prefs.getString("widget_${appWidgetId}_name", "") ?: ""
+            var moduleIconPath = prefs.getString("widget_${appWidgetId}_icon", null)
+            var modulePath = prefs.getString("widget_${appWidgetId}_path", null)
+            var showName = prefs.getBoolean("widget_${appWidgetId}_show_name", false)
+
+            if (moduleId == null) {
+                // Some launchers pin the widget without ever launching the configure
+                // activity, which would leave the widget permanently blank because there
+                // is no per-widget config yet. Reuse the module the user already picked
+                // from the app so the pinned widget renders immediately, and persist it
+                // as this widget's config so later updates keep working.
+                val pendingId = prefs.getString(PENDING_ID, null) ?: return
+                moduleId = pendingId
+                moduleName = prefs.getString(PENDING_NAME, "") ?: ""
+                moduleIconPath = prefs.getString(PENDING_ICON, null)
+                modulePath = prefs.getString(PENDING_PATH, null)
+                showName = prefs.getBoolean(PENDING_SHOW_NAME, true)
+                prefs.edit()
+                    .putString("widget_${appWidgetId}_id", moduleId)
+                    .putString("widget_${appWidgetId}_name", moduleName)
+                    .putString("widget_${appWidgetId}_icon", moduleIconPath)
+                    .putString("widget_${appWidgetId}_path", modulePath)
+                    .putBoolean("widget_${appWidgetId}_show_name", showName)
+                    .remove(PENDING_ID)
+                    .remove(PENDING_NAME)
+                    .remove(PENDING_ICON)
+                    .remove(PENDING_PATH)
+                    .remove(PENDING_SHOW_NAME)
+                    .apply()
+            }
 
             val views = RemoteViews(context.packageName, R.layout.widget_module)
 

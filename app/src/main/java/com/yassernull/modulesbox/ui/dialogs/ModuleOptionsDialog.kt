@@ -1,6 +1,9 @@
 package com.yassernull.modulesbox.ui.dialogs
 
-import android.content.Intent
+import android.appwidget.AppWidgetManager
+import android.content.ComponentName
+import android.content.Context
+import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -11,7 +14,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.OpenInBrowser
 import androidx.compose.material.icons.filled.Widgets
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -23,7 +26,7 @@ import com.yassernull.modulesbox.R
 import com.yassernull.modulesbox.core.AppBrowser
 import com.yassernull.modulesbox.core.AppPreferences
 import com.yassernull.modulesbox.data.model.Module
-import com.yassernull.modulesbox.ui.activities.ModuleWidgetConfigureActivity
+import com.yassernull.modulesbox.receivers.ModuleWidgetProvider
 import kotlinx.coroutines.runBlocking
 
 @Composable
@@ -37,6 +40,7 @@ fun ModuleOptionsDialog(
     val context = LocalContext.current
     val preferences = AppPreferences(context)
     val defaultBrowser = runBlocking { preferences.getDefaultBrowserSync() }
+    var showPinFallback by remember { mutableStateOf(false) }
 
     Dialog(onDismissRequest = onDismissRequest) {
         Surface(
@@ -115,11 +119,9 @@ fun ModuleOptionsDialog(
                         headlineContent = { Text(stringResource(R.string.add_to_widget)) },
                         leadingContent = { Icon(Icons.Default.Widgets, contentDescription = null) },
                         modifier = Modifier.clickable {
-                            val intent = Intent(context, ModuleWidgetConfigureActivity::class.java).apply {
-                                putExtra(android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_ID, android.appwidget.AppWidgetManager.INVALID_APPWIDGET_ID)
-                            }
-                            context.startActivity(intent)
+                            val pinned = requestPinWidget(context, module)
                             onDismissRequest()
+                            if (!pinned) showPinFallback = true
                         }
                     )
 
@@ -169,6 +171,52 @@ fun ModuleOptionsDialog(
             }
         }
     }
+
+    if (showPinFallback) {
+        AlertDialog(
+            onDismissRequest = { showPinFallback = false },
+            title = { Text(stringResource(R.string.add_widget_unsupported_title)) },
+            text = { Text(stringResource(R.string.add_widget_unsupported_message)) },
+            confirmButton = {
+                TextButton(onClick = { showPinFallback = false }) {
+                    Text(stringResource(R.string.ok))
+                }
+            }
+        )
+    }
+}
+
+/**
+ * Ask the launcher to pin a widget for this module on the home screen.
+ *
+ * Returns false when the device cannot pin widgets directly (pre-Android 8, or a
+ * launcher that does not report APPWIDGET_PINNED support), so the caller can fall
+ * back to telling the user how to add it manually.
+ *
+ * The chosen module is written to [ModuleWidgetProvider.PENDING_ID] first: some
+ * launchers pin the widget without ever launching the configure activity, which
+ * would otherwise leave the widget permanently blank.
+ */
+private fun requestPinWidget(context: Context, module: Module): Boolean {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return false
+
+    val manager = AppWidgetManager.getInstance(context)
+    if (!manager.isRequestPinAppWidgetSupported) return false
+
+    context.getSharedPreferences(ModuleWidgetProvider.WIDGET_PREFS, Context.MODE_PRIVATE)
+        .edit()
+        .putString(ModuleWidgetProvider.PENDING_ID, module.id)
+        .putString(ModuleWidgetProvider.PENDING_NAME, module.name)
+        .putString(ModuleWidgetProvider.PENDING_ICON, module.icon)
+        .putString(ModuleWidgetProvider.PENDING_PATH, module.path)
+        .putBoolean(ModuleWidgetProvider.PENDING_SHOW_NAME, true)
+        .apply()
+
+    // Use the class rather than a hardcoded string so a future package rename
+    // cannot silently break the pin request.
+    val provider = ComponentName(context, ModuleWidgetProvider::class.java)
+    manager.requestPinAppWidget(provider, null, null)
+    return true
 }
 
 @Composable
