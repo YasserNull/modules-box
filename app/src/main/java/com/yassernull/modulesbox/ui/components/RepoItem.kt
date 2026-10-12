@@ -51,7 +51,7 @@ fun RepoItem(
                     .fillMaxWidth()
                     .then(if (spanCount < 6) Modifier.height(130.dp) else Modifier)
                     .padding(4.dp)
-                    .clickable { onButtonClick() },
+                    .clickable { onModuleClick() },
                 elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -199,7 +199,7 @@ fun RepoItem(
 }
 
 @Composable
-private fun DownloadButton(downloadState: DownloadState, onButtonClick: () -> Unit) {
+fun DownloadButton(downloadState: DownloadState, onButtonClick: () -> Unit) {
     when (downloadState) {
         DownloadState.DOWNLOADING -> {
             SizedCircularProgressIndicator(

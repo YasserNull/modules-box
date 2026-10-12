@@ -17,9 +17,12 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -30,7 +33,8 @@ import com.google.accompanist.swiperefresh.SwipeRefresh
 import com.google.accompanist.swiperefresh.rememberSwipeRefreshState
 import com.yassernull.modulesbox.R
 import com.yassernull.modulesbox.data.model.Module
-import com.yassernull.modulesbox.ui.activities.ModuleWebViewActivity
+import com.yassernull.modulesbox.data.model.RemoteModule
+import com.yassernull.modulesbox.ui.dialogs.ModuleReadmeDialog
 import com.yassernull.modulesbox.ui.viewmodels.DownloadState
 import com.yassernull.modulesbox.ui.viewmodels.RepoViewModel
 
@@ -73,6 +77,35 @@ fun RepoScreen(
 
     // استخدام rememberSwipeRefreshState من مكتبة Accompanist القديمة لتجنب أخطاء الترجمة
     val swipeRefreshState = rememberSwipeRefreshState(isRefreshing = isLoading)
+
+    // الوحدة المعروض ملف README الخاص بها حاليًا (null = النافذة مغلقة).
+    var selectedModule by remember { mutableStateOf<RemoteModule?>(null) }
+
+    val downloadModule: (RemoteModule) -> Unit = { module ->
+        viewModel.downloadModule(module, onDownloadComplete, onNeedsInstall) {
+            Toast.makeText(context, context.getString(R.string.install_failed), Toast.LENGTH_LONG).show()
+        }
+    }
+
+    selectedModule?.let { module ->
+        val readmeUrl = module.readmeUrl
+        if (readmeUrl == null) {
+            selectedModule = null
+        } else {
+            val state = downloadStates[module.id] ?: DownloadState.IDLE
+            // إغلاق النافذة بعد اكتمال التنزيل لأن الوحدة تختفي من المستودع بعد تثبيتها.
+            LaunchedEffect(state) {
+                if (state == DownloadState.COMPLETED) selectedModule = null
+            }
+            ModuleReadmeDialog(
+                module = module,
+                readmeUrl = readmeUrl,
+                downloadState = state,
+                onDownload = { downloadModule(module) },
+                onDismiss = { selectedModule = null }
+            )
+        }
+    }
 
     SwipeRefresh(
         state = swipeRefreshState,
@@ -147,14 +180,8 @@ fun RepoScreen(
                             RepoItem(
                                 module = module,
                                 downloadState = downloadStates[module.id] ?: DownloadState.IDLE,
-                                onButtonClick = { viewModel.downloadModule(module, onDownloadComplete, onNeedsInstall) { reason ->
-                                    Toast.makeText(context, context.getString(R.string.install_failed), Toast.LENGTH_LONG).show()
-                                } },
-                                onModuleClick = {
-                                    module.readmeUrl?.let { url ->
-                                        ModuleWebViewActivity.launch(context, "", url, module.name)
-                                    }
-                                },
+                                onButtonClick = { downloadModule(module) },
+                                onModuleClick = { selectedModule = module },
                                 isGrid = true,
                                 spanCount = spanCount
                             )
@@ -169,14 +196,8 @@ fun RepoScreen(
                             RepoItem(
                                 module = module,
                                 downloadState = downloadStates[module.id] ?: DownloadState.IDLE,
-                                onButtonClick = { viewModel.downloadModule(module, onDownloadComplete, onNeedsInstall) { reason ->
-                                    Toast.makeText(context, context.getString(R.string.install_failed), Toast.LENGTH_LONG).show()
-                                } },
-                                onModuleClick = {
-                                    module.readmeUrl?.let { url ->
-                                        ModuleWebViewActivity.launch(context, "", url, module.name)
-                                    }
-                                },
+                                onButtonClick = { downloadModule(module) },
+                                onModuleClick = { selectedModule = module },
                                 isGrid = false
                             )
                         }
