@@ -11,4 +11,18 @@
     <string name="browser_modules_box">Modules Box</string>
     <string name="browser_default">المتصفح الافتراضي</string>
     <string name="module_not_running">الوحدة غير قيد التشغيل</string>
+    <string name="open_in_browser">فتح في المتصفح</string>
+    <string name="open_in_app">فتح داخل التطبيق</string>
+    <string name="open_with">فتح باستخدام</string>
+    <string name="add_to_widget">إضافة إلى الويدجت</string>
+    <string name="module_info">معلومات الوحدة</string>
+    <string name="id">المعرف</string>
+    <string name="name">الاسم</string>
+    <string name="author">المؤلف</string>
+    <string name="version">الإصدار</string>
+    <string name="path">المسار</string>
+    <string name="html">ملف HTML</string>
+    <string name="icon">الأيقونة</string>
+    <string name="description">الوصف</string>
+    <string name="module_options">خيارات الوحدة</string>
 </resources>

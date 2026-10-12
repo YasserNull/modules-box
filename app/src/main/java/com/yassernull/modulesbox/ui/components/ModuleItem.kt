@@ -2,7 +2,8 @@ package com.yassernull.modulesbox.ui.components
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.RectangleShape
@@ -30,6 +31,7 @@ import com.yassernull.modulesbox.R
 import com.yassernull.modulesbox.data.model.Module
 import java.io.File
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ModuleItem(
     module: Module,
@@ -41,7 +43,8 @@ fun ModuleItem(
     onStartClick: () -> Unit,
     onStopClick: () -> Unit,
     onDeleteClick: () -> Unit,
-    onLogClick: () -> Unit
+    onLogClick: () -> Unit,
+    onLongClick: () -> Unit = {}
 ) {
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
         // Clicking the module opens the site in the in-app WebView.
@@ -56,7 +59,10 @@ fun ModuleItem(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 4.dp, horizontal = 8.dp)
-                .clickable { onModuleClick() },
+                .combinedClickable(
+                    onClick = onModuleClick,
+                    onLongClick = onLongClick
+                ),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -123,7 +129,7 @@ fun ModuleItem(
                             color = MaterialTheme.colorScheme.primary,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.clickable { onOpenInBrowserClick() }
+
                         )
                     }
                 }

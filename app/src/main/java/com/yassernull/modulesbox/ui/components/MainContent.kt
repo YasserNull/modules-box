@@ -29,6 +29,7 @@ import com.yassernull.modulesbox.core.AppPreferences
 import com.yassernull.modulesbox.data.model.Module
 import com.yassernull.modulesbox.ui.activities.ModuleWebViewActivity
 import com.yassernull.modulesbox.ui.dialogs.ModuleLogDialog
+import com.yassernull.modulesbox.ui.dialogs.ModuleOptionsDialog
 import com.yassernull.modulesbox.ui.viewmodels.ModuleViewModel
 import com.yassernull.modulesbox.utils.ModuleInstaller
 import com.yassernull.modulesbox.utils.PortManager
@@ -45,6 +46,8 @@ fun MainContent(
     val startingModules by viewModel.startingModules.collectAsState()
 
     var showLogDialog by remember { mutableStateOf(false) }
+    var showOptionsDialog by remember { mutableStateOf(false) }
+    var selectedModule by remember { mutableStateOf<Module?>(null) }
     var selectedModuleLogs by remember { mutableStateOf("") }
 
     val filteredModules = if (searchQuery.isBlank()) {
@@ -57,6 +60,7 @@ fun MainContent(
         }
     }
 
+    val context = LocalContext.current
     val swipeRefreshState = rememberSwipeRefreshState(isRefreshing = isLoading)
 
     SwipeRefresh(
@@ -92,7 +96,6 @@ fun MainContent(
                 )
             }
         } else {
-            val context = LocalContext.current
             val preferences = remember { AppPreferences(context) }
             val defaultBrowser by preferences.getDefaultBrowser().collectAsState(initial = AppBrowser.MODULES_BOX)
 
@@ -129,6 +132,10 @@ fun MainContent(
                         onLogClick = {
                             selectedModuleLogs = viewModel.getModuleLogs(module.id)
                             showLogDialog = true
+                        },
+                        onLongClick = {
+                            selectedModule = module
+                            showOptionsDialog = true
                         }
                     )
                 }
@@ -140,6 +147,25 @@ fun MainContent(
         ModuleLogDialog(
             logText = selectedModuleLogs,
             onDismissRequest = { showLogDialog = false }
+        )
+    }
+
+    if (showOptionsDialog && selectedModule != null) {
+        val runningState = runningModules[selectedModule!!.id]
+        val isRunning = runningState != null
+        val port = runningState?.port
+        ModuleOptionsDialog(
+            module = selectedModule!!,
+            onDismissRequest = { showOptionsDialog = false },
+            onDeleteClick = {
+                viewModel.uninstallModule(selectedModule!!)
+            },
+            onOpenInBrowserClick = {
+                openInBrowser(context, selectedModule!!, port)
+            },
+            onOpenInAppClick = {
+                openModuleInApp(context, selectedModule!!, port)
+            }
         )
     }
 }
@@ -156,8 +182,21 @@ private fun openModule(
         if (defaultBrowser == AppBrowser.DEFAULT_BROWSER) {
             openInBrowser(context, module, currentPort)
         } else {
-            ModuleWebViewActivity.launch(context, module, url)
+            openModuleInApp(context, module, currentPort)
         }
+    } else {
+        Toast.makeText(context, context.getString(R.string.module_not_running), android.widget.Toast.LENGTH_SHORT).show()
+    }
+}
+
+private fun openModuleInApp(
+    context: android.content.Context,
+    module: Module,
+    currentPort: Int?
+) {
+    val url = moduleUrl(module, currentPort)
+    if (url != null) {
+        ModuleWebViewActivity.launch(context, module, url)
     } else {
         Toast.makeText(context, context.getString(R.string.module_not_running), android.widget.Toast.LENGTH_SHORT).show()
     }
