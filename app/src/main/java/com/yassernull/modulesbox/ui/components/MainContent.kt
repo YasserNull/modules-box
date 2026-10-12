@@ -156,7 +156,7 @@ private fun openModule(
         if (defaultBrowser == AppBrowser.DEFAULT_BROWSER) {
             openInBrowser(context, module, currentPort)
         } else {
-            ModuleWebViewActivity.launch(context, module.path, url, module.name)
+            ModuleWebViewActivity.launch(context, module, url)
         }
     } else {
         Toast.makeText(context, context.getString(R.string.module_not_running), android.widget.Toast.LENGTH_SHORT).show()

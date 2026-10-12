@@ -74,12 +74,22 @@
             android:exported="false"
             android:windowSoftInputMode="adjustResize"
             android:configChanges="locale|layoutDirection|fontScale|screenSize|smallestScreenSize|screenLayout|orientation" />
-
-        <activity android:name=".ui.activities.ModuleWidgetConfigureActivity" android:exported="true" android:theme="@style/app_theme">
+        <activity
+            android:name=".ui.activities.ModuleWidgetConfigureActivity" android:exported="true" android:theme="@style/app_theme">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
             </intent-filter>
         </activity>
+
+        <!-- Invisible, transparent entry point launched by the widget tap. It reads the
+             default-browser preference and forwards to the WebView or the external
+             browser, so the widget never triggers a background activity start. -->
+        <activity
+            android:name=".ui.activities.ModuleLauncherActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:theme="@style/Theme.App.Transparent" />
 
         <receiver android:name=".receivers.ModuleWidgetProvider" android:exported="true">
             <intent-filter>

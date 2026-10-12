@@ -4,27 +4,15 @@ import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.Context
-import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.RectF
-import android.net.Uri
 import android.widget.RemoteViews
-import android.widget.Toast
 import com.yassernull.modulesbox.R
-import com.yassernull.modulesbox.data.repository.ModuleRepository
-import com.yassernull.modulesbox.core.AppBrowser
-import com.yassernull.modulesbox.core.AppPreferences
-import com.yassernull.modulesbox.ui.activities.ModuleWebViewActivity
-import com.yassernull.modulesbox.utils.ModuleInstaller
-import com.yassernull.modulesbox.utils.RuntimeTmp
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import com.yassernull.modulesbox.ui.activities.ModuleLauncherActivity
 import java.io.File
 
 class ModuleWidgetProvider : AppWidgetProvider() {
@@ -35,64 +23,7 @@ class ModuleWidgetProvider : AppWidgetProvider() {
         }
     }
 
-    override fun onReceive(context: Context, intent: Intent) {
-        super.onReceive(context, intent)
-        if (intent.action == ACTION_START_MODULE) {
-            val moduleId = intent.getStringExtra(EXTRA_MODULE_ID) ?: return
-            
-            val pendingResult = goAsync()
-            CoroutineScope(Dispatchers.IO).launch {
-                try {
-                    RuntimeTmp.prepare(context)
-                    val repository = ModuleRepository(context)
-                    val modules = repository.getModules()
-                    val module = modules.find { it.id == moduleId } ?: return@launch
-                    
-                    var port = ModuleInstaller.getModulePort(moduleId)
-                    var isColdStart = false
-                    if (port == null) {
-                        isColdStart = true
-                        port = ModuleInstaller.startModuleServer(context, module)
-                    }
-                    
-                    if (port != null) {
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(context, context.getString(R.string.module_started), Toast.LENGTH_SHORT).show()
-                        }
-                        if (isColdStart) {
-                            var attempts = 0
-                            while (attempts < 15 && !ModuleInstaller.isPortOpen(port)) {
-                                kotlinx.coroutines.delay(200)
-                                attempts++
-                            }
-                            kotlinx.coroutines.delay(300)
-                        }
-                        val page = module.html?.takeIf { it.isNotBlank() }?.let { "/$it" } ?: "/"
-                        val siteUrl = "http://localhost:$port$page"
-                        val defaultBrowser = AppPreferences(context).getDefaultBrowserSync()
-                        if (defaultBrowser == AppBrowser.MODULES_BOX) {
-                            ModuleWebViewActivity.launch(context, module.path, siteUrl, module.name)
-                        } else {
-                            val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(siteUrl)).apply {
-                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                            }
-                            context.startActivity(browserIntent)
-                        }
-                    } else {
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(context, context.getString(R.string.module_start_failed), Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                } finally {
-                    pendingResult.finish()
-                }
-            }
-        }
-    }
-
     companion object {
-        const val ACTION_START_MODULE = "com.yassernull.modulesbox.action.START_MODULE"
-        const val EXTRA_MODULE_ID = "module_id"
 
         fun updateAppWidget(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int) {
             val prefs = context.getSharedPreferences("widget_prefs", Context.MODE_PRIVATE)
@@ -125,9 +56,19 @@ class ModuleWidgetProvider : AppWidgetProvider() {
                     options.inJustDecodeBounds = false
                     options.inSampleSize = inSampleSize
                     // prevent hardware bitmap configuration which is buggy with widgets
-                    options.inPreferredConfig = Bitmap.Config.ARGB_8888 
-                    bitmap = BitmapFactory.decodeFile(iconFile.absolutePath, options)
+                    options.inPreferredConfig = Bitmap.Config.ARGB_8888
+                    try {
+                        bitmap = BitmapFactory.decodeFile(iconFile.absolutePath, options)
+                        android.util.Log.i("ModuleWidgetProvider", "widget $appWidgetId icon decoded: ${iconFile.absolutePath} -> ${bitmap?.width}x${bitmap?.height}")
+                    } catch (e: Exception) {
+                        android.util.Log.e("ModuleWidgetProvider", "widget $appWidgetId icon decode failed for ${iconFile.absolutePath}", e)
+                        bitmap = null
+                    }
+                } else {
+                    android.util.Log.w("ModuleWidgetProvider", "widget $appWidgetId icon file missing: ${iconFile.absolutePath}")
                 }
+            } else {
+                android.util.Log.w("ModuleWidgetProvider", "widget $appWidgetId missing icon/path: icon=$moduleIconPath path=$modulePath")
             }
 
             if (bitmap != null) {
@@ -143,12 +84,8 @@ class ModuleWidgetProvider : AppWidgetProvider() {
                 views.setViewVisibility(R.id.widget_name, android.view.View.GONE)
             }
 
-            val intent = Intent(context, ModuleWidgetProvider::class.java).apply {
-                action = ACTION_START_MODULE
-                data = android.net.Uri.parse("widget://$appWidgetId")
-                putExtra(EXTRA_MODULE_ID, moduleId)
-            }
-            val pendingIntent = PendingIntent.getBroadcast(
+            val intent = ModuleLauncherActivity.intentForModule(context, moduleId, appWidgetId)
+            val pendingIntent = PendingIntent.getActivity(
                 context,
                 appWidgetId,
                 intent,

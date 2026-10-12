@@ -451,12 +451,19 @@ object ModuleInstaller {
             .toList()
     }
 
-    /** proot shares the host network namespace, so guest localhost == host localhost. */
+    /** proot shares the host network namespace, so guest localhost == host localhost.
+     *
+     * Must be called off the main thread: the plain-Socket connect throws
+     * NetworkOnMainThreadException there, and callers must not count on this being caught. */
     fun isPortOpen(port: Int): Boolean {
-        for (host in arrayOf("127.0.0.1", "localhost")) {
+        // Probe both loopback families: a server started as `php -S localhost` or a plain
+        // `node server.js` may bind only IPv4 (127.0.0.1) or only IPv6 (::1). Checking
+        // only one family used to report a running server as "not open" until the wait
+        // timeout expired, which showed up as a stuck loading circle on widget taps.
+        for (host in arrayOf("127.0.0.1", "::1", "localhost")) {
             try {
                 Socket().use { socket ->
-                    socket.connect(InetSocketAddress(host, port), 600)
+                    socket.connect(InetSocketAddress(host, port), 300)
                     return true
                 }
             } catch (_: Exception) {
