@@ -88,7 +88,14 @@ class ModuleViewModel(
         return _runningModules.value[moduleId]?.port
     }
 
-    fun startModule(context: Context, module: Module) {
+    /**
+     * Starts the module server.
+     *
+     * @param onStarted invoked with the port once the server is actually listening,
+     * so callers can open the module right after starting it. Failure is not
+     * reported back: the result dialog is already shown for that.
+     */
+    fun startModule(context: Context, module: Module, onStarted: ((Int) -> Unit)? = null) {
         viewModelScope.launch {
             _startingModules.value = _startingModules.value + module.id
 
@@ -108,6 +115,7 @@ class ModuleViewModel(
                 _runningModules.value = _runningModules.value + (module.id to ModuleRunningState(debugPort, module.id))
                 _startingModules.value = _startingModules.value - module.id
                 Toast.makeText(context, context.getString(R.string.module_started), Toast.LENGTH_SHORT).show()
+                onStarted?.invoke(debugPort)
                 return@launch
             }
 
@@ -118,6 +126,7 @@ class ModuleViewModel(
             if (port != null) {
                 _runningModules.value = _runningModules.value + (module.id to ModuleRunningState(port, module.id))
                 Toast.makeText(context, context.getString(R.string.module_started), Toast.LENGTH_SHORT).show()
+                onStarted?.invoke(port)
             } else {
                 _resultDialogText.value = ModuleInstaller.getCommandOutput(module.id)
                 _showResultDialog.value = true

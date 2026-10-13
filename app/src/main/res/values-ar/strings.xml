@@ -10,7 +10,6 @@
     <string name="select_default_browser">اختر المتصفح الافتراضي</string>
     <string name="browser_modules_box">Modules Box</string>
     <string name="browser_default">المتصفح الافتراضي</string>
-    <string name="module_not_running">الوحدة غير قيد التشغيل</string>
     <string name="open_in_browser">فتح في المتصفح</string>
     <string name="open_in_app">فتح داخل التطبيق</string>
     <string name="open_with">فتح باستخدام</string>

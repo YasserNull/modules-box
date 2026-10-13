@@ -10,7 +10,6 @@
     <string name="select_default_browser">Select default browser</string>
     <string name="browser_modules_box">Modules Box</string>
     <string name="browser_default">Default Browser</string>
-    <string name="module_not_running">Module is not running</string>
     <string name="open_in_browser">Open in browser</string>
     <string name="open_in_app">Open in app</string>
     <string name="open_with">Open with</string>

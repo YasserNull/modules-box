@@ -115,10 +115,14 @@ fun MainContent(
                         isStarting = isStarting,
                         port = port,
                         onModuleClick = {
-                            openModule(context, module, port, defaultBrowser)
+                            openModule(context, viewModel, module, port) { url ->
+                                openResolvedUrl(context, module, url, defaultBrowser)
+                            }
                         },
                         onOpenInBrowserClick = {
-                            openInBrowser(context, module, port)
+                            openModule(context, viewModel, module, port) { url ->
+                                openInBrowser(context, url)
+                            }
                         },
                         onStartClick = {
                             viewModel.startModule(context, module)
@@ -151,75 +155,82 @@ fun MainContent(
     }
 
     if (showOptionsDialog && selectedModule != null) {
-        val runningState = runningModules[selectedModule!!.id]
-        val isRunning = runningState != null
-        val port = runningState?.port
+        val optionsModule = selectedModule!!
+        val port = runningModules[optionsModule.id]?.port
         ModuleOptionsDialog(
-            module = selectedModule!!,
+            module = optionsModule,
             onDismissRequest = { showOptionsDialog = false },
             onDeleteClick = {
-                viewModel.uninstallModule(selectedModule!!)
+                viewModel.uninstallModule(optionsModule)
             },
             onOpenInBrowserClick = {
-                openInBrowser(context, selectedModule!!, port)
+                openModule(context, viewModel, optionsModule, port) { url ->
+                    openInBrowser(context, url)
+                }
             },
             onOpenInAppClick = {
-                openModuleInApp(context, selectedModule!!, port)
+                openModule(context, viewModel, optionsModule, port) { url ->
+                    ModuleWebViewActivity.launch(context, optionsModule, url)
+                }
             }
         )
     }
 }
 
+/**
+ * Opens the module, starting its server first when it is not already running.
+ *
+ * @param openWith decides how to open the resolved URL once the module is up, so the
+ * same start-then-open flow serves the card tap, "open in app" and "open in browser".
+ */
 private fun openModule(
     context: android.content.Context,
+    viewModel: ModuleViewModel,
     module: Module,
     currentPort: Int?,
-    defaultBrowser: AppBrowser
+    openWith: (url: String) -> Unit
 ) {
     // Node modules have no html file — they serve from the server root (/).
     val url = moduleUrl(module, currentPort)
     if (url != null) {
-        if (defaultBrowser == AppBrowser.DEFAULT_BROWSER) {
-            openInBrowser(context, module, currentPort)
-        } else {
-            openModuleInApp(context, module, currentPort)
-        }
-    } else {
-        Toast.makeText(context, context.getString(R.string.module_not_running), android.widget.Toast.LENGTH_SHORT).show()
+        openWith(url)
+        return
     }
+
+    // Not running yet: start the server and open as soon as it reports its port.
+    // The card already shows a spinner for this module while it is in flight.
+    viewModel.startModule(context, module, onStarted = { port ->
+        val startedUrl = moduleUrl(module, port) ?: return@startModule
+        openWith(startedUrl)
+    })
 }
 
-private fun openModuleInApp(
+/** Opens [url] in the app WebView, or in the external browser when that is the default. */
+private fun openResolvedUrl(
     context: android.content.Context,
     module: Module,
-    currentPort: Int?
+    url: String,
+    defaultBrowser: AppBrowser
 ) {
-    val url = moduleUrl(module, currentPort)
-    if (url != null) {
+    if (defaultBrowser == AppBrowser.DEFAULT_BROWSER) {
+        openInBrowser(context, url)
+    } else {
         ModuleWebViewActivity.launch(context, module, url)
-    } else {
-        Toast.makeText(context, context.getString(R.string.module_not_running), android.widget.Toast.LENGTH_SHORT).show()
     }
 }
 
-private fun openInBrowser(
-    context: android.content.Context,
-    module: Module,
-    currentPort: Int?
-) {
-    val url = moduleUrl(module, currentPort)
-    if (url != null) {
-        try {
-            val intent = android.content.Intent(
-                android.content.Intent.ACTION_VIEW,
-                android.net.Uri.parse(url)
-            )
-            context.startActivity(intent)
-        } catch (e: Exception) {
-            Toast.makeText(context, context.getString(R.string.module_not_running), android.widget.Toast.LENGTH_SHORT).show()
-        }
-    } else {
-        Toast.makeText(context, context.getString(R.string.module_not_running), android.widget.Toast.LENGTH_SHORT).show()
+/** Opens [url] in the device's default browser. */
+private fun openInBrowser(context: android.content.Context, url: String) {
+    try {
+        context.startActivity(
+            android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))
+        )
+    } catch (e: Exception) {
+        Toast.makeText(
+            context,
+            context.getString(R.string.error_opening_link, url),
+            Toast.LENGTH_SHORT
+        ).show()
     }
 }
 
