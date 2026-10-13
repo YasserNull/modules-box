@@ -20,9 +20,7 @@
     <string name="name">الاسم</string>
     <string name="author">المؤلف</string>
     <string name="version">الإصدار</string>
-    <string name="path">المسار</string>
-    <string name="html">ملف HTML</string>
-    <string name="icon">الأيقونة</string>
+    <string name="version_code">رقم الإصدار</string>
     <string name="description">الوصف</string>
     <string name="module_options">خيارات الوحدة</string>
     <string name="add_widget_help_title">إضافة الويدجت إلى الشاشة الرئيسية</string>

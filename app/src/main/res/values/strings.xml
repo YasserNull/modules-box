@@ -20,9 +20,7 @@
     <string name="name">Name</string>
     <string name="author">Author</string>
     <string name="version">Version</string>
-    <string name="path">Path</string>
-    <string name="html">HTML</string>
-    <string name="icon">Icon</string>
+    <string name="version_code">Version code</string>
     <string name="description">Description</string>
     <string name="module_options">Module options</string>
     <string name="add_widget_help_title">Add widget to home screen</string>
