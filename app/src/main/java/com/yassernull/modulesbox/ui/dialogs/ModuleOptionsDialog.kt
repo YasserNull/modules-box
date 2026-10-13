@@ -144,28 +144,18 @@ fun ModuleOptionsDialog(
                     Text(
                         text = stringResource(R.string.module_info),
                         style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                     )
 
-                    Surface(
-                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        shape = MaterialTheme.shapes.medium,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp)
-                    ) {
-                        Column(modifier = Modifier.padding(vertical = 4.dp)) {
-                            InfoRow(stringResource(R.string.id), module.id, isFirst = true)
-                            InfoRow(stringResource(R.string.name), module.name)
-                            InfoRow(stringResource(R.string.author), module.author)
-                            InfoRow(stringResource(R.string.version), module.version)
-                            module.versionCode?.takeIf { it.isNotBlank() }?.let {
-                                InfoRow(stringResource(R.string.version_code), it)
-                            }
-                            module.description?.takeIf { it.isNotBlank() }?.let {
-                                InfoRow(stringResource(R.string.description), it)
-                            }
-                        }
+                    InfoRow(stringResource(R.string.id), module.id)
+                    InfoRow(stringResource(R.string.name), module.name)
+                    InfoRow(stringResource(R.string.author), module.author)
+                    InfoRow(stringResource(R.string.version), module.version)
+                    if (!module.versionCode.isNullOrBlank()) {
+                        InfoRow(stringResource(R.string.version_code), module.versionCode!!)
+                    }
+                    if (!module.description.isNullOrBlank()) {
+                        InfoRow(stringResource(R.string.description), module.description!!)
                     }
 
                     Divider(modifier = Modifier.padding(vertical = 8.dp))
@@ -277,36 +267,20 @@ private fun requestPinWidget(context: Context, module: Module): Boolean {
 }
 
 @Composable
-private fun InfoRow(label: String, value: String, isFirst: Boolean = false) {
-    Column {
-        if (!isFirst) {
-            // Thin rule between rows so the block reads as one list instead of a
-            // stack of loose label/value pairs.
-            Divider(
-                modifier = Modifier.padding(horizontal = 24.dp),
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
-            )
-        }
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.Top
-        ) {
-            // Fixed share for the label keeps every value on the same column edge.
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.weight(0.45f)
-            )
-            Text(
-                text = value,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.weight(0.55f)
-            )
-        }
+private fun InfoRow(label: String, value: String) {
+    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 3,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }
 
