@@ -25,6 +25,6 @@
     <string name="icon">Icon</string>
     <string name="description">Description</string>
     <string name="module_options">Module options</string>
-    <string name="add_widget_unsupported_title">Can\'t add widget automatically</string>
-    <string name="add_widget_unsupported_message">Your launcher doesn\'t support adding widgets from the app. To add it manually, touch and hold an empty area of the home screen, choose Widgets, then pick Modules Box.</string>
+    <string name="add_widget_help_title">Add widget to home screen</string>
+    <string name="add_widget_help_message">Your launcher was asked to pin this widget. If no confirmation appears, add it manually: touch and hold an empty area of the home screen, choose Widgets, then pick Modules Box.</string>
 </resources>

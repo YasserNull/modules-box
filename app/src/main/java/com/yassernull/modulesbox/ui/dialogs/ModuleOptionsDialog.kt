@@ -124,12 +124,18 @@ fun ModuleOptionsDialog(
                         leadingContent = { Icon(Icons.Default.Widgets, contentDescription = null) },
                         modifier = Modifier.clickable {
                             Log.i(TAG, "add_to_widget item clicked")
-                            val pinned = requestPinWidget(context, module)
-                            onDismissRequest()
-                            if (!pinned) {
-                                Log.i(TAG, "pin not possible -> showing manual-add fallback dialog")
-                                showPinFallback = true
-                            }
+                            requestPinWidget(context, module)
+                            // Show the help dialog on every attempt. Most launchers that
+                            // report isRequestPinAppWidgetSupported still silently drop
+                            // the request instead of showing their pin UI, and there is no
+                            // way to detect that synchronously, so telling the user how to
+                            // add it from the widget picker is never wrong.
+                            //
+                            // onDismissRequest() must NOT run first: it unmounts this
+                            // composable, which would throw away showPinFallback before
+                            // the help dialog ever rendered.
+                            Log.i(TAG, "pin requested -> showing manual-add help")
+                            showPinFallback = true
                         }
                     )
 
@@ -182,11 +188,17 @@ fun ModuleOptionsDialog(
 
     if (showPinFallback) {
         AlertDialog(
-            onDismissRequest = { showPinFallback = false },
-            title = { Text(stringResource(R.string.add_widget_unsupported_title)) },
-            text = { Text(stringResource(R.string.add_widget_unsupported_message)) },
+            onDismissRequest = {
+                showPinFallback = false
+                onDismissRequest()
+            },
+            title = { Text(stringResource(R.string.add_widget_help_title)) },
+            text = { Text(stringResource(R.string.add_widget_help_message)) },
             confirmButton = {
-                TextButton(onClick = { showPinFallback = false }) {
+                TextButton(onClick = {
+                    showPinFallback = false
+                    onDismissRequest()
+                }) {
                     Text(stringResource(R.string.ok))
                 }
             }
