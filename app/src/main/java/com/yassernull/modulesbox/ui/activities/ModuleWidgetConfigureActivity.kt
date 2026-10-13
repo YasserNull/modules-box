@@ -45,8 +45,14 @@ class ModuleWidgetConfigureActivity : ComponentActivity() {
                 AppWidgetManager.INVALID_APPWIDGET_ID
             )
         }
-        
+
+        android.util.Log.i(
+            "WidgetConfigure",
+            "onCreate action=${intent?.action} appWidgetId=$appWidgetId (invalid=${AppWidgetManager.INVALID_APPWIDGET_ID})"
+        )
+
         if (appWidgetId == AppWidgetManager.INVALID_APPWIDGET_ID) {
+            android.util.Log.w("WidgetConfigure", "no valid appWidgetId -> finishing immediately")
             finish()
             return
         }
@@ -75,6 +81,7 @@ class ModuleWidgetConfigureActivity : ComponentActivity() {
     }
 
     private fun saveWidgetConfig(module: Module, showName: Boolean) {
+        android.util.Log.i("WidgetConfigure", "saveWidgetConfig id=$appWidgetId module=${module.id} showName=$showName")
         val prefs = getSharedPreferences(ModuleWidgetProvider.WIDGET_PREFS, Context.MODE_PRIVATE)
         prefs.edit()
             .putString("widget_${appWidgetId}_id", module.id)

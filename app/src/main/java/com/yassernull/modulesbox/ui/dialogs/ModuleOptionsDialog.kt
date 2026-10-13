@@ -4,6 +4,7 @@ import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
 import android.os.Build
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -119,9 +120,13 @@ fun ModuleOptionsDialog(
                         headlineContent = { Text(stringResource(R.string.add_to_widget)) },
                         leadingContent = { Icon(Icons.Default.Widgets, contentDescription = null) },
                         modifier = Modifier.clickable {
+                            Log.i(TAG, "add_to_widget item clicked")
                             val pinned = requestPinWidget(context, module)
                             onDismissRequest()
-                            if (!pinned) showPinFallback = true
+                            if (!pinned) {
+                                Log.i(TAG, "pin not possible -> showing manual-add fallback dialog")
+                                showPinFallback = true
+                            }
                         }
                     )
 
@@ -186,6 +191,8 @@ fun ModuleOptionsDialog(
     }
 }
 
+private const val TAG = "AddToWidget"
+
 /**
  * Ask the launcher to pin a widget for this module on the home screen.
  *
@@ -198,10 +205,21 @@ fun ModuleOptionsDialog(
  * would otherwise leave the widget permanently blank.
  */
 private fun requestPinWidget(context: Context, module: Module): Boolean {
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return false
+    Log.i(TAG, "add_to_widget pressed: module id=${module.id} name=${module.name}")
+    Log.i(TAG, "sdk=${Build.VERSION.SDK_INT}, required>=${Build.VERSION_CODES.O}")
+
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+        Log.w(TAG, "blocked: Android version too old for requestPinAppWidget")
+        return false
+    }
 
     val manager = AppWidgetManager.getInstance(context)
-    if (!manager.isRequestPinAppWidgetSupported) return false
+    val supported = manager.isRequestPinAppWidgetSupported
+    Log.i(TAG, "isRequestPinAppWidgetSupported=$supported")
+    if (!supported) {
+        Log.w(TAG, "blocked: launcher does not support pinning widgets")
+        return false
+    }
 
     context.getSharedPreferences(ModuleWidgetProvider.WIDGET_PREFS, Context.MODE_PRIVATE)
         .edit()
@@ -211,11 +229,14 @@ private fun requestPinWidget(context: Context, module: Module): Boolean {
         .putString(ModuleWidgetProvider.PENDING_PATH, module.path)
         .putBoolean(ModuleWidgetProvider.PENDING_SHOW_NAME, true)
         .apply()
+    Log.i(TAG, "pending widget config written for module=${module.id}")
 
     // Use the class rather than a hardcoded string so a future package rename
     // cannot silently break the pin request.
     val provider = ComponentName(context, ModuleWidgetProvider::class.java)
-    manager.requestPinAppWidget(provider, null, null)
+    Log.i(TAG, "calling requestPinAppWidget provider=${provider.flattenToString()}")
+    val accepted = manager.requestPinAppWidget(provider, null, null)
+    Log.i(TAG, "requestPinAppWidget returned accepted=$accepted")
     return true
 }
 

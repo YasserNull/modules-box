@@ -18,6 +18,7 @@ import java.io.File
 class ModuleWidgetProvider : AppWidgetProvider() {
 
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
+        android.util.Log.i("ModuleWidgetProvider", "onUpdate ids=${appWidgetIds.toList()}")
         for (appWidgetId in appWidgetIds) {
             updateAppWidget(context, appWidgetManager, appWidgetId)
         }
@@ -45,13 +46,29 @@ class ModuleWidgetProvider : AppWidgetProvider() {
             var modulePath = prefs.getString("widget_${appWidgetId}_path", null)
             var showName = prefs.getBoolean("widget_${appWidgetId}_show_name", false)
 
+            android.util.Log.i(
+                "ModuleWidgetProvider",
+                "updateAppWidget id=$appWidgetId storedModuleId=$moduleId pendingId=${prefs.getString(PENDING_ID, null)}"
+            )
+
             if (moduleId == null) {
                 // Some launchers pin the widget without ever launching the configure
                 // activity, which would leave the widget permanently blank because there
                 // is no per-widget config yet. Reuse the module the user already picked
                 // from the app so the pinned widget renders immediately, and persist it
                 // as this widget's config so later updates keep working.
-                val pendingId = prefs.getString(PENDING_ID, null) ?: return
+                val pendingId = prefs.getString(PENDING_ID, null)
+                if (pendingId == null) {
+                    android.util.Log.w(
+                        "ModuleWidgetProvider",
+                        "widget $appWidgetId has no stored config and no pending module -> skip"
+                    )
+                    return
+                }
+                android.util.Log.i(
+                    "ModuleWidgetProvider",
+                    "widget $appWidgetId has no config yet -> adopting pending module=$pendingId"
+                )
                 moduleId = pendingId
                 moduleName = prefs.getString(PENDING_NAME, "") ?: ""
                 moduleIconPath = prefs.getString(PENDING_ICON, null)
