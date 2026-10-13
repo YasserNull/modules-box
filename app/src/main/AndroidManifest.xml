@@ -98,6 +98,12 @@
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/module_widget_info" />
         </receiver>
 
+        <!-- Fired by the launcher only once a pinned widget is really placed.
+             requestPinAppWidget() returning true is not enough, see the class. -->
+        <receiver
+            android:name=".receivers.WidgetPinReceiver"
+            android:exported="false" />
+
         <provider
             android:name="rikka.shizuku.ShizukuProvider"
             android:authorities="${applicationId}.shizuku"

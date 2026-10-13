@@ -1,8 +1,10 @@
 package com.yassernull.modulesbox.ui.dialogs
 
+import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
+import android.content.Intent
 import android.os.Build
 import android.util.Log
 import androidx.compose.foundation.background
@@ -28,6 +30,7 @@ import com.yassernull.modulesbox.core.AppBrowser
 import com.yassernull.modulesbox.core.AppPreferences
 import com.yassernull.modulesbox.data.model.Module
 import com.yassernull.modulesbox.receivers.ModuleWidgetProvider
+import com.yassernull.modulesbox.receivers.WidgetPinReceiver
 import kotlinx.coroutines.runBlocking
 
 @Composable
@@ -234,8 +237,19 @@ private fun requestPinWidget(context: Context, module: Module): Boolean {
     // Use the class rather than a hardcoded string so a future package rename
     // cannot silently break the pin request.
     val provider = ComponentName(context, ModuleWidgetProvider::class.java)
+    Log.i(TAG, "widget ids already bound to provider: ${manager.getAppWidgetIds(provider).toList()}")
+
+    // The launcher fires this only once the widget is really placed, which is the
+    // only way to distinguish a real pin from a silently dropped request.
+    val callback = PendingIntent.getBroadcast(
+        context,
+        0,
+        Intent(context, WidgetPinReceiver::class.java),
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+    )
+
     Log.i(TAG, "calling requestPinAppWidget provider=${provider.flattenToString()}")
-    val accepted = manager.requestPinAppWidget(provider, null, null)
+    val accepted = manager.requestPinAppWidget(provider, null, callback)
     Log.i(TAG, "requestPinAppWidget returned accepted=$accepted")
     return true
 }
