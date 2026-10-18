@@ -53,6 +53,9 @@ object ModuleInstaller {
 
     private val OUTPUT_PORT = Regex("(?m)^[ \\t]*(\\d{2,5})[ \\t]*\\r?$")
 
+    /** Node entry files a module may ship; a module contains exactly one of them. */
+    private val NODE_ENTRY_FILES = listOf("server.js", "server.mjs", "server.ts")
+
     private val runningHandles = mutableMapOf<String, ShizukuShellHandle>()
     private val runningPorts = mutableMapOf<String, Int>()
     private val _runningModulesFlow = MutableStateFlow<Map<String, Int>>(emptyMap())
@@ -252,6 +255,17 @@ object ModuleInstaller {
     }
 
     /**
+     * The module's Node entry file. A module may ship server.js, server.mjs or
+     * server.ts (exactly one), so the command must not hardcode server.js. Falls back
+     * to server.js when none is found on the host, which lets the guest report the
+     * missing-file error instead of the app failing silently.
+     */
+    private fun getNodeEntryFile(module: Module): String {
+        return NODE_ENTRY_FILES.firstOrNull { File(module.path, it).exists() }
+            ?: NODE_ENTRY_FILES.first()
+    }
+
+    /**
      * Guest path of the module's custom start script, or null when the module declares
      * none. A declared-but-missing file falls back to the built-in command so a module
      * is still startable instead of failing outright.
@@ -283,18 +297,18 @@ object ModuleInstaller {
         return if (php) {
             "cd $prootPath && php -S localhost:$port"
         } else {
-            "cd $prootPath && export NODE_PATH=/usr/local/lib/node_modules && export PORT=$port && node server.js"
+            "cd $prootPath && export NODE_PATH=/usr/local/lib/node_modules && export PORT=$port && node ${getNodeEntryFile(module)}"
         }
     }
 
     /**
      * Starts a long-running server (node server.js / php -S / a custom start script)
-     * WITHOUT waiting for it to exit. Server commands never exit on success, so no exit
-     * code is ever awaited: success is declared as soon as the process survives a short
-     * startup window and the port is known, and the Stop button + port appear
-     * immediately. The pty keeps draining in the background (no output-buffer deadlock,
-     * Log dialog stays live). Only an early non-zero exit (crash during startup) is
-     * reported as failure with the captured logs.
+     * WITHOUT waiting for it to exit. A server command must never return an exit value:
+     * success is declared as soon as the process survives a short startup window and the
+     * port is known, and the Stop button + port appear immediately. The pty keeps
+     * draining in the background (no output-buffer deadlock, Log dialog stays live). Any
+     * exit — even code 0 — means the module did not stay up, so it is reported as
+     * failure with the captured logs and no port/link is published.
      *
      * @return the resolved port, or null when the start failed.
      */
@@ -368,17 +382,18 @@ object ModuleInstaller {
                 return@withContext awaitReportedPort(deferred, output, { status -> snapshot(status) }, moduleId)
             }
 
-            // No startup window. A server command never exits on success, so any wait here
-            // is pure added latency on the UI, and the start should feel exactly as quick
-            // as running the same command in a terminal. The single case still worth
-            // handling is a process that has already died — that check is free.
+            // No startup window. A server command must never exit while running, so any
+            // wait here is pure added latency on the UI, and the start should feel exactly
+            // as quick as running the same command in a terminal. The single case still
+            // worth handling is a process that already died — that check is free. Any
+            // exit code (0 included) is a failure: a stopped process means the module did
+            // not stay up, so no port or link is published.
             if (deferred.isCompleted) {
                 val exitCode = runCatching { deferred.await() }.getOrDefault(-1)
                 withTimeoutOrNull(2_000) { drainJobs[moduleId]?.join() }
-                val ok = exitCode == 0 && isPortOpen(port)
-                if (!ok) tearDownServerProcess(moduleId)
-                commandOutputs[moduleId] = snapshot(if (ok) "exited 0 (listening)" else "exited $exitCode")
-                return@withContext if (ok) port else null
+                tearDownServerProcess(moduleId)
+                commandOutputs[moduleId] = snapshot("exited $exitCode")
+                return@withContext null
             }
 
             // Still alive: report success immediately so Stop + port appear at once.
@@ -400,8 +415,9 @@ object ModuleInstaller {
      * the command redirects into port.txt) and through a bare `echo "$PORT"` line in the
      * pty output, which is how the reference script speaks. Every candidate is verified
      * by connecting to it, so a number picked up from log noise can never be mistaken
-     * for the server. A script that dies without reporting, or reports a port nothing
-     * ever binds, fails the start instead of leaving a dead entry in the list.
+     * for the server. Any exit from the script — reported port or not — fails the start,
+     * because a server that returns an exit value did not stay up. This prevents a
+     * printed-then-exited script from leaving a dead entry in the list.
      */
     private suspend fun awaitReportedPort(
         deferred: CompletableDeferred<Int>,
@@ -421,16 +437,20 @@ object ModuleInstaller {
         }
 
         while (SystemClock.elapsedRealtime() < deadline) {
+            // Any exit code means the start script returned, so the server did not stay
+            // up: fail before accepting a port, even one that is still listening. This
+            // is what makes a module that merely prints a port and exits count as failed.
+            if (deferred.isCompleted) {
+                tearDownServerProcess(moduleId)
+                val exitCode = runCatching { deferred.await() }.getOrDefault(-1)
+                commandOutputs[moduleId] = snapshot("exited $exitCode before staying up")
+                return null
+            }
             val reported = collect()
             candidates.firstOrNull { isPortOpen(it) }?.let { listening ->
                 commandOutputs[moduleId] = snapshot("running on $listening")
                 Log.i(TAG, "awaitReportedPort: $moduleId listening on $listening")
                 return listening
-            }
-            if (!reported && deferred.isCompleted) {
-                tearDownServerProcess(moduleId)
-                commandOutputs[moduleId] = snapshot("exited before reporting a port")
-                return null
             }
             delay(PORT_POLL_INTERVAL_MS)
         }
