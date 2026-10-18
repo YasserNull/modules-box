@@ -366,10 +366,44 @@ class TerminalActivity : ComponentActivity(), TerminalSessionClient, TerminalVie
             return
         }
 
-        if (binder.getService().sessionList.isEmpty()) {
+        val service = binder.getService()
+        if (service.sessionList.isEmpty()) {
             val preferences = AppPreferences(this)
             createSession(preferences.getEffectiveWorkingMode())
+        } else {
+            // The service keeps sessions alive across activity restarts, but this activity's
+            // fresh TerminalView starts unattached. Re-attach the last active session so the
+            // terminal shows content immediately instead of an empty screen the user has to
+            // fix by picking a session from the drawer.
+            attachLastSession()
         }
+    }
+
+    /**
+     * Attaches the session the user was last on to the (possibly freshly created) terminal
+     * view. The service's currentSession survives activity restarts, so it is the source of
+     * truth for "last session". Falls back to the first session when it points at a session
+     * that no longer exists (the service default is "session_0", which is never created —
+     * generated ids start at session_1). No-op when a session is already attached or the view
+     * isn't ready yet; createTerminalView() calls back here once it is.
+     */
+    private fun attachLastSession() {
+        val binder = sessionBinder ?: return
+        val view = terminalView.get() ?: return
+        // Already attached — this also guards against a double attach when both
+        // onServiceConnected and createTerminalView() reach here.
+        if (view.mTermSession != null) return
+
+        val service = binder.getService()
+        val currentId = service.currentSession.value.first
+        val sessionId = if (binder.getSession(currentId) != null) {
+            currentId
+        } else {
+            service.sessionList.keys.firstOrNull()
+        } ?: return
+
+        Log.d("TerminalActivity", "Re-attaching last session $sessionId on terminal open")
+        switchToSession(sessionId)
     }
 
     /** Whether this activity was launched to run a module install script/command. */
