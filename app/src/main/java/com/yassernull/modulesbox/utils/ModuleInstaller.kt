@@ -118,6 +118,9 @@ object ModuleInstaller {
             putExtra(com.yassernull.modulesbox.ui.activities.TerminalActivity.EXTRA_INSTALL_SCRIPT_PATH, scriptFile.absolutePath)
             putExtra(com.yassernull.modulesbox.ui.activities.TerminalActivity.EXTRA_INSTALL_MODULE_NAME, module.name)
             putExtra(com.yassernull.modulesbox.ui.activities.TerminalActivity.EXTRA_INSTALL_WORKING_DIR, module.path)
+            // The download/install flow already staged the module into the guest when this
+            // is true, so the terminal can skip copying it again and start the install sooner.
+            putExtra(com.yassernull.modulesbox.ui.activities.TerminalActivity.EXTRA_INSTALL_PRE_STAGED, module.preStaged)
             addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         context.startActivity(intent)

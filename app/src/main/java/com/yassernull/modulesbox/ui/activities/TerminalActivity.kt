@@ -109,6 +109,7 @@ class TerminalActivity : ComponentActivity(), TerminalSessionClient, TerminalVie
         const val EXTRA_INSTALL_MODULE_NAME = "extra_install_module_name"
         const val EXTRA_INSTALL_COMMAND = "extra_install_command"
         const val EXTRA_INSTALL_WORKING_DIR = "extra_install_working_dir"
+        const val EXTRA_INSTALL_PRE_STAGED = "extra_install_pre_staged"
     }
 
     var sessionBinder by mutableStateOf<SessionService.SessionBinder?>(null)
@@ -127,6 +128,7 @@ class TerminalActivity : ComponentActivity(), TerminalSessionClient, TerminalVie
     private var installModuleName: String? = null
     private var installCommand: String? = null
     private var installWorkingDir: String? = null
+    private var installPreStaged = false
 
     // Guard against creating a second install session when ensureInitialSession() is
     // reached more than once (service connect + terminal view composition).
@@ -186,6 +188,7 @@ class TerminalActivity : ComponentActivity(), TerminalSessionClient, TerminalVie
         installModuleName = intent.getStringExtra(EXTRA_INSTALL_MODULE_NAME)
         installCommand = intent.getStringExtra(EXTRA_INSTALL_COMMAND)
         installWorkingDir = intent.getStringExtra(EXTRA_INSTALL_WORKING_DIR)
+        installPreStaged = intent.getBooleanExtra(EXTRA_INSTALL_PRE_STAGED, false)
 
         // Back handling: the drawer-closing BackHandler in TerminalRoot takes precedence
         // while the drawer is open. This callback handles the rest — close the drawer,
@@ -457,10 +460,11 @@ class TerminalActivity : ComponentActivity(), TerminalSessionClient, TerminalVie
      * and resolves the install script + working dir to guest paths, so the script runs
      * with its sibling files (package.json, ...) visible.
      *
-     * Staging happens here (right before use, single source of truth) instead of relying
-     * on download-time staging. In shizuku/root mode the copy is elevated; in app-private
-     * mode the download-time direct copy is verified. Guest paths (under /) are used
-     * because app-private /data/... paths are not visible inside proot.
+     * The download/install flow already staged the module best-effort (see
+     * [com.yassernull.modulesbox.data.model.Module.preStaged]): in shizuku/root mode the
+     * elevated copy is skipped when that succeeded, and re-staged here when it did not; in
+     * app-private mode the direct copy is verified. Guest paths (under /) are used because
+     * app-private /data/... paths are not visible inside proot.
      * Returns false when there is nothing to stage or staging failed.
      */
     private suspend fun stageInstallScriptForPrivileged(): Boolean {
@@ -483,6 +487,17 @@ class TerminalActivity : ComponentActivity(), TerminalSessionClient, TerminalVie
                 installWorkingDir = guestDir
                 true
             } else false
+        }
+        // The download/install flow already copied the whole module into the guest
+        // (best-effort, reported via EXTRA_INSTALL_PRE_STAGED), so skip the expensive
+        // elevated re-copy and just point the session at the guest paths. This is what
+        // makes the terminal appear and start installing immediately instead of waiting
+        // seconds while the module is copied a second time. When the download-time copy
+        // did not succeed, fall through and stage now so the install still works.
+        if (installPreStaged) {
+            installScriptPath = guestScript
+            installWorkingDir = guestDir
+            return true
         }
         // Elevated full-module staging: (re-)copy the whole app-private module dir so
         // the script AND its sibling files are guaranteed fresh inside the guest.

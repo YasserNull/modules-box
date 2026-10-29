@@ -248,23 +248,27 @@ object PrivilegedFileOps {
                 }
 
                 PrivilegedAccessManager.hasShizukuPermission() -> {
-                    // Shizuku shell cannot read app-private storage: recreate dirs
-                    // elevated, then copy each file via writeFileToPrivileged (/sdcard staging).
-                    if (!runViaShizuku(context, "rm -rf '$targetPath' && mkdir -p '$targetPath' >/dev/null 2>&1")) {
+                    // Shizuku cannot read app-private storage, so stage the whole tree on
+                    // /sdcard first (a plain local copy), then move it into the guest with a
+                    // SINGLE elevated command. The old code spawned one shizuku shell per
+                    // file, and that per-file process churn is what made a fast local copy
+                    // show as a multi-second spinner after tapping download.
+                    val stagingRoot = File(STAGING_DIR, sourceDir.name)
+                    try {
+                        if (stagingRoot.exists()) stagingRoot.deleteRecursively()
+                        stagingRoot.mkdirs()
+                        sourceDir.copyRecursively(stagingRoot, overwrite = true)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "copyDirToPrivileged: staging copy failed for $sourceDir", e)
+                        stagingRoot.deleteRecursively()
                         return@withContext false
                     }
-                    var ok = true
-                    sourceDir.walkTopDown().forEach { file ->
-                        if (!ok) return@forEach
-                        val rel = file.relativeTo(sourceDir).path
-                        if (rel.isEmpty()) return@forEach
-                        val dest = "$targetPath/$rel"
-                        ok = if (file.isDirectory) {
-                            runViaShizuku(context, "mkdir -p '$dest' >/dev/null 2>&1")
-                        } else {
-                            writeFileToPrivileged(context, file, dest)
-                        }
-                    }
+                    // `.` copies dotfiles too (e.g. .installed); a+rX keeps the exec bit on
+                    // already-executable files and grants traversal on directories.
+                    val cmd = "rm -rf '$targetPath' && mkdir -p '$targetPath' && " +
+                        "cp -rf '${stagingRoot.path}/.' '$targetPath/' && chmod -R a+rX '$targetPath'"
+                    val ok = runViaShizuku(context, cmd)
+                    stagingRoot.deleteRecursively()
                     ok
                 }
 

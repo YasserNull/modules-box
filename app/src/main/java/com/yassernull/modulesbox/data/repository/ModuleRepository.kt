@@ -143,8 +143,10 @@ class ModuleRepository(
                 moduleContentDir.copyRecursively(finalModuleDir, overwrite = true)
 
                 // Best-effort staging into the proot guest (needed to RUN the module
-                // later). The terminal install re-stages fresh before running the
-                // script, so a hiccup here must not block the install flow.
+                // later). When it succeeds the install terminal reuses this copy instead
+                // of staging again (see Module.preStaged); when it fails the terminal
+                // re-stages before running the script, so a hiccup here never blocks the
+                // install flow.
                 val prootTargetPath = File(distributionDir(), "opt/modules-box/$moduleId").absolutePath
                 val staged = if (isDistroShizukuRoot()) {
                     PrivilegedFileOps.copyDirToPrivileged(context, moduleContentDir, prootTargetPath)
@@ -164,6 +166,9 @@ class ModuleRepository(
 
                 val module = readModuleProp(File(finalModuleDir, "module.prop"))
                     ?: throw IOException("module.prop غير صالح.")
+                // Remember whether the elevated/app-private staging above succeeded. The
+                // install terminal uses this to skip copying the module a second time.
+                module.preStaged = staged
 
                 // If the module declares an install script and it exists, it must run in an
                 // Alpine terminal before the module counts as installed.

@@ -11,10 +11,12 @@ import io.ktor.client.statement.*
 import io.ktor.http.encodeURLPathPart
 import io.ktor.http.isSuccess
 import io.ktor.utils.io.jvm.javaio.toInputStream
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -263,13 +265,20 @@ class RepoRepository(private val context: Context) {
         return null
     }
 
-    // زيارة رابط badge لتسجيل زيارة للمستودع
-	private suspend fun triggerVisitorBadge(remoteModule: RemoteModule) {
-	    try {
-	        val repoPath = remoteModule.repository.removePrefix("https://github.com/")
-	        val badgeUrl = "https://visitor-badge.laobi.icu/badge?page_id=$repoPath"
-	        client.get(badgeUrl)
-	    } catch (e: Exception) {
-	    }
-	}
+    // زيارة رابط badge لتسجيل زيارة للمستودع.
+    //
+    // Fire-and-forget: this is a best-effort analytics ping to a third-party host, so it
+    // must never sit on the download path. Awaiting it added seconds to every download
+    // whenever that host was slow or unreachable, which is exactly how long the user had
+    // to wait after tapping the download button.
+    private fun triggerVisitorBadge(remoteModule: RemoteModule) {
+        val repoPath = remoteModule.repository.removePrefix("https://github.com/")
+        val badgeUrl = "https://visitor-badge.laobi.icu/badge?page_id=$repoPath"
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                client.get(badgeUrl)
+            } catch (_: Exception) {
+            }
+        }
+    }
 }

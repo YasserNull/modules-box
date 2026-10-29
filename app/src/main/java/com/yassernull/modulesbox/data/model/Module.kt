@@ -15,4 +15,11 @@ data class Module(
     val start: String?,     // مسار سكربت التشغيل المخصص (start.sh) الذي يختار البورت بنفسه.
     val permission: String?, // صلاحية الوحدة: default, shizuku, root.
     val icon: String?       // مسار أيقونة الوحدة (icon.png, icon.jpg, icon.svg).
-)
+) {
+    /**
+     * Runtime-only hint: true when the install flow already copied this module's files
+     * into the guest (proot) directory, so the install terminal can skip the expensive
+     * re-copy and boot straight away. Never persisted and not part of equals/hashCode.
+     */
+    var preStaged: Boolean = false
+}
